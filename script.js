@@ -1,6 +1,6 @@
 // 0. CONFIGURAÇÃO SUPABASE (Substitua pelas suas chaves do painel do Supabase)
 const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co'; // <-- COLOQUE AQUI A URL DO SEU PROJETO SUPABASE
-const SUPABASE_KEY = 'sb_publishable_nKcbuBqKfu6MghVmJvB5OQ_elexxgqa'; // <-- COLOQUE AQUI A CHAVE 'anon public' DO SUPABASE
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw'; // <-- COLOQUE AQUI A CHAVE 'anon public' DO SUPABASE
 
 if (SUPABASE_URL.includes("SUBSTITUA_PELA_URL")) {
     console.warn("⚠️ SISTEMA EM MODO DE CONFIGURAÇÃO: Insira as credenciais de produção nas variáveis de ambiente.");
@@ -17,7 +17,12 @@ let currentUser = JSON.parse(localStorage.getItem('notecel_user')) || null;
 
 // Utils
 const formatarMoeda = (valor) => {
-    return valor.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' });
+    const n = Number(valor) || 0;
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2
+    }).format(n);
 };
 
 // --- FUNÇÕES DE NAVEGAÇÃO E FILTRO ---
@@ -30,54 +35,73 @@ function scrollToGrid(categoria) {
 
 async function filtrar(categoria) {
     const grid = document.getElementById('product-grid');
-    const tituloPagina = document.querySelector('header h1');
+    const tituloPagina = document.querySelector('#hero h1');
     
     if (!grid) return;
+    
+    // Força a visibilidade do container para que o loader e mensagens apareçam
+    grid.closest('.reveal')?.classList.add('reveal-active');
     grid.innerHTML = '<div class="col-span-full text-center py-10"><i class="fa-solid fa-circle-notch animate-spin text-3xl text-red-700"></i></div>';
 
-    if (!tituloPagina) return;
-
-    // Busca produtos do Supabase se a lista estiver vazia
-    if (produtos.length === 0) {
-        const { data, error } = await supabaseClient.from('produtos').select('*');
-        
-        if (error || !data || data.length === 0) {
-            grid.innerHTML = '<p class="col-span-full text-center text-slate-500 py-10">Nenhum produto encontrado no banco de dados.</p>';
-            return;
-        } else {
-            produtos = data;
+    try {
+        // Busca produtos do Supabase se a lista estiver vazia
+        if (produtos.length === 0) {
+            const { data, error } = await supabaseClient.from('produtos').select('*');
+            console.log("📦 Dados recebidos do Supabase:", data);
+            
+            if (error) {
+                console.error("❌ Erro ao buscar produtos:", error.message);
+                grid.innerHTML = `<p class="col-span-full text-center text-red-500 py-10">Erro ao carregar produtos: ${error.message}</p>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<p class="col-span-full text-center text-slate-500 py-10">O catálogo está vazio. Adicione produtos no SQL Editor do Supabase.</p>';
+                return;
+            }
+            produtos = data || [];
         }
-    }
 
-    const filtrados = (categoria === 'todos') 
-        ? produtos 
-        : produtos.filter(p => p.categoria === categoria);
+        const filtrados = (categoria === 'todos') 
+            ? produtos 
+            : produtos.filter(p => (p.categoria || '').toLowerCase() === categoria.toLowerCase());
 
-    // Atualiza o título dinamicamente para o usuário saber onde está
-    if(categoria === 'todos') {
-        tituloPagina.innerHTML = 'Contas Premium <br>com <span class="text-red-700">acesso imediato.</span>';
-    } else {
-        tituloPagina.innerText = categoria;
-    }
+        if (filtrados.length === 0) {
+            grid.innerHTML = `<p class="col-span-full text-center text-slate-500 py-10">Nenhum item encontrado na categoria "${categoria}".</p>`;
+            return;
+        }
 
-    grid.innerHTML = filtrados.map(p => `
-        <div class="product-card bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <div class="h-48 overflow-hidden">
-                <img src="${p.imagem_url}" alt="${p.nome}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
-            </div>
-            <div class="p-8">
-                <span class="text-[10px] font-bold tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">${p.categoria}</span>
-                <h3 class="text-lg font-bold mt-3 text-slate-900">${p.nome}</h3>
-                <p class="text-slate-500 text-xs mt-1">${p.descricao}</p>
-                <div class="mt-6 flex items-center justify-between">
-                    <span class="text-2xl font-black text-slate-900">${formatarMoeda(p.preco)}</span>
-                    <button onclick="addToCart(${p.id})" class="bg-slate-900 hover:bg-red-700 text-white p-3 rounded-2xl transition active:scale-90 shadow-lg">
-                        <i class="fa-solid fa-plus"></i>
-                    </button>
+        // Atualiza o título dinamicamente
+        if (tituloPagina) {
+            if(categoria === 'todos') {
+                tituloPagina.innerHTML = 'Contas Premium <br>com <span class="text-red-700">acesso imediato.</span>';
+            } else {
+                tituloPagina.innerText = categoria;
+            }
+        }
+
+        grid.innerHTML = filtrados.map(p => `
+            <div class="product-card bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="h-48 overflow-hidden">
+                    <img src="${p.imagem_url || 'https://via.placeholder.com/400x300'}" alt="${p.nome}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+                </div>
+                <div class="p-8">
+                    <span class="text-[10px] font-bold tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">${p.categoria || 'Digital'}</span>
+                    <h3 class="text-lg font-bold mt-3 text-slate-900">${p.nome}</h3>
+                    <p class="text-slate-500 text-xs mt-1">${p.descricao || ''}</p>
+                    <div class="mt-6 flex items-center justify-between">
+                        <span class="text-2xl font-black text-slate-900">${formatarMoeda(p.preco)}</span>
+                        <button onclick="addToCart(${p.id})" class="bg-slate-900 hover:bg-red-700 text-white p-3 rounded-2xl transition active:scale-90 shadow-lg">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+
+    } catch (err) {
+        console.error("❌ Falha crítica no catálogo:", err);
+        grid.innerHTML = `<p class="col-span-full text-center text-red-500 py-10">Ocorreu um erro interno. Tente atualizar a página.</p>`;
+    }
 
     document.querySelectorAll('.nav-link').forEach(link => {
         const linkText = link.innerText.trim();
@@ -248,23 +272,38 @@ function toggleMobileMenu() {
 }
 
 function addToCart(id) {
-    const index = cart.findIndex(p => p.id === id);
+    console.log("Attempting to add product with ID:", id);
+    console.log("Current products array:", produtos);
+
+    const productToAdd = produtos.find(p => p.id === id);
+
+    if (!productToAdd) {
+        console.error("❌ Produto com ID", id, "não encontrado na lista de produtos disponíveis.");
+        alert("Não foi possível adicionar o produto ao carrinho. O produto não foi encontrado.");
+        return; // Exit if product not found
+    }
+
+    const existingItemIndex = cart.findIndex(item => item.id === id);
     
-    if (index !== -1) {
-        cart[index].quantidade++;
+    if (existingItemIndex !== -1) {
+        cart[existingItemIndex].quantidade++;
     } else {
-        const item = produtos.find(p => p.id === id);
-        cart.push({ ...item, quantidade: 1 });
+        cart.push({ ...productToAdd, quantidade: 1 });
     }
     
-    saveCart();
+    saveCart(); // Save updated cart to localStorage and update UI
 
-    // Animação no botão do carrinho na navbar
-    const cartIcon = document.querySelector('nav button');
-    cartIcon.classList.add('cart-bump');
-    setTimeout(() => cartIcon.classList.remove('cart-bump'), 400);
+    // Animate the correct cart button (the one containing the cart-count span)
+    const cartButton = document.getElementById('cart-count').closest('button');
+    if (cartButton) {
+        cartButton.classList.add('cart-bump');
+        setTimeout(() => cartButton.classList.remove('cart-bump'), 400);
+    }
 
-    if(!document.getElementById('cartSidebar').classList.contains('cart-open')) toggleCart();
+    // Open cart sidebar if it's not already open
+    if (!document.getElementById('cartSidebar').classList.contains('cart-open')) {
+        toggleCart();
+    }
 }
 
 function updateQuantity(id, delta) {

@@ -22,7 +22,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        transaction_amount: Number(valor),
+        transaction_amount: parseFloat(Number(valor).toFixed(2)),
         description: descricao,
         payment_method_id: 'pix',
         payer: { email: email }
@@ -46,7 +46,7 @@ serve(async (req) => {
     // Para este exemplo, vamos buscar um login aleatório para o primeiro item do carrinho.
     // O ideal seria que o frontend enviasse o `produto_id` do item que o cliente está comprando.
     // Identifica o produto para reservar o login (assumindo 1 item principal para este fluxo)
-    const firstProductId = cartItems && cartItems.length > 0 ? cartItems[0].id : null;
+    const firstProductId = Array.isArray(cartItems) && cartItems.length > 0 ? cartItems[0].id : null;
 
     if (!firstProductId) throw new Error("Nenhum produto no carrinho para reservar login.");
 
@@ -90,7 +90,7 @@ serve(async (req) => {
         qr_code_base64: paymentData.point_of_interaction.transaction_data.qr_code_base64,
         id_pagamento: paymentData.id,
         pedido_id: pedidoData.id // Retorna o ID do pedido para o frontend
-      })
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

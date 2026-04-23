@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Importamos aqui os estilos customizados que estavam no style.css para consolidar o bundle */
+@import "./style.css";
