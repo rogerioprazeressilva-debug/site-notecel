@@ -1,14 +1,10 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "trailingSlash": false,
-  "framework": null,
-  "headers": [
+  "rewrites": [
     {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
+      "source": "/((?!api|_next/static|_next/image|dist|static|favicon.ico).*)",
+      "destination": "/index.html"
     }
   ]
 }
