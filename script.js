@@ -245,7 +245,7 @@ function updateUserUI() {
     const logoutBtn = document.getElementById('logoutBtn');
     const userBtn = document.getElementById('userBtn');
 
-    if (!nameDisplay) return;
+    if (!nameDisplay || !userBtn || !logoutBtn) return;
 
     if(currentUser) {
         nameDisplay.innerText = `Olá, ${currentUser.nome.split(' ')[0]}`;

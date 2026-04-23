@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tailwindcss -i ./input.css -o ./dist/output.css --minify",
+    "build": "mkdir -p dist && tailwindcss -i ./input.css -o ./dist/output.css --minify",
     "start": "node server.js",
     "dev:css": "tailwindcss -i ./input.css -o ./dist/output.css --watch",
     "build:css": "tailwindcss -i ./input.css -o ./dist/output.css --minify"
