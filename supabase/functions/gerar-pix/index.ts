@@ -13,6 +13,21 @@ serve(async (req) => {
     const body = await req.json()
     const { valor, descricao, email, customer_whatsapp, cartItems } = body
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')
+    
+    // 0. Identificar Usuário via JWT (Segurança)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    
+    // Extrair ID do usuário do JWT (se houver)
+    const authHeader = req.headers.get('Authorization');
+    let userId = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id;
+    }
 
     // 1. Criar pagamento no Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
@@ -33,12 +48,6 @@ serve(async (req) => {
 
     if (!mpResponse.ok) throw new Error(paymentData.message || 'Erro no Mercado Pago')
 
-    // 2. Salvar pedido e reservar login no Banco de Dados (Supabase)
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
     // Buscar o ID do produto no carrinho (assumindo que o carrinho tem apenas 1 item para simplificar)
     // Em um sistema real, você passaria o carrinho completo e faria um loop.
     // Por enquanto, vamos assumir que o "descricao" pode ser usado para buscar o produto_id
@@ -50,16 +59,28 @@ serve(async (req) => {
 
     if (!firstProductId) throw new Error("Nenhum produto no carrinho para reservar login.");
 
-    // Reservar um login disponível
-    const { data: loginData, error: loginError } = await supabase
-      .from('logins_disponiveis')
-      .select('id, username, password')
-      .eq('produto_id', firstProductId) // Vincula ao produto que está sendo comprado
-      .eq('status', 'disponivel')
-      .limit(1)
+    // 2. Verificar se o produto é digital ou físico (Loja)
+    const { data: product } = await supabase
+      .from('produtos')
+      .select('categoria')
+      .eq('id', firstProductId)
       .single();
 
-    if (loginError || !loginData) throw new Error("Nenhum login disponível para este produto.");
+    let loginId = null;
+
+    if (product?.categoria !== 'Loja') {
+      // Reservar um login disponível apenas para Streaming/Acessórios Digitais
+      const { data: loginData, error: loginError } = await supabase
+        .from('logins_disponiveis')
+        .select('id')
+        .eq('produto_id', firstProductId)
+        .eq('status', 'disponivel')
+        .limit(1)
+        .maybeSingle();
+      
+      if (loginError || !loginData) throw new Error("Estoque esgotado para este produto digital.");
+      loginId = loginData.id;
+    }
 
     // Criar o pedido no banco de dados
     const { data: pedidoData, error: pedidoError } = await supabase
@@ -68,21 +89,24 @@ serve(async (req) => {
         pix_id: String(paymentData.id),
         total: valor,
         status: 'PENDENTE',
-        login_id: loginData.id, // Vincula o login reservado ao pedido
-        customer_whatsapp: customer_whatsapp
+        login_id: loginId, 
+        customer_whatsapp: customer_whatsapp,
+        user_id: userId
       })
       .select('id')
       .single();
 
     if (pedidoError || !pedidoData) throw new Error("Erro ao criar o pedido.");
 
-    // Marcar o login como reservado
-    const { error: updateLoginError } = await supabase
-      .from('logins_disponiveis')
-      .update({ status: 'reservado', reserved_by_pedido_id: pedidoData.id })
-      .eq('id', loginData.id);
+    // 3. Marcar o login como reservado (se houver um)
+    if (loginId) {
+      const { error: updateLoginError } = await supabase
+        .from('logins_disponiveis')
+        .update({ status: 'reservado', reserved_by_pedido_id: pedidoData.id })
+        .eq('id', loginId);
 
-    if (updateLoginError) throw updateLoginError;
+      if (updateLoginError) throw updateLoginError;
+    }
 
     return new Response(
       JSON.stringify({

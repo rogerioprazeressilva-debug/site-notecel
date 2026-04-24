@@ -8,6 +8,24 @@
     <link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23b91c1c%22/><text y=%22.75em%22 x=%2250%%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22900%22 font-size=%2270%22 fill=%22white%22>N</text></svg>">
     <link rel="stylesheet" href="./output.css?v=1.0.1">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .cart-item-enter { animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .badge-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(185, 28, 28, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(185, 28, 28, 0); }
+        }
+        @keyframes bounce-short {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-bounce-short { animation: bounce-short 2s ease-in-out infinite; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
 
@@ -27,7 +45,7 @@
             <a href="index.html" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Início</a>
             <a href="javascript:void(0)" onclick="scrollToGrid('Streaming')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Streaming</a>
             <a href="javascript:void(0)" onclick="scrollToGrid('Acessórios')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Acessórios</a>
-            <a href="loja.html" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Loja</a>
+            <a href="javascript:void(0)" onclick="scrollToGrid('Loja')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Loja</a>
             <a href="https://wa.me/5591985156039" target="_blank" class="border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Suporte</a>
         </div>
 
@@ -44,7 +62,7 @@
 
             <button id="cartBtnHeader" onclick="toggleCart()" class="relative bg-slate-900 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-lg transition-all active:scale-90">
                 <i class="fa-solid fa-cart-shopping text-lg"></i>
-                <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full border-2 border-white shadow-md">0</span>
+                <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full border-2 border-white shadow-md badge-pulse">0</span>
             </button>
             
             <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="md:hidden text-2xl text-slate-800 transition-transform active:scale-90">
@@ -170,9 +188,9 @@
         </div>
         <div class="flex flex-col p-4 gap-2 text-sm font-bold uppercase tracking-widest text-slate-600">
             <a href="javascript:void(0)" onclick="filtrar('todos'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Início</a>
-            <a href="javascript:void(0)" onclick="filtrar('Streaming'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Streaming</a>
-            <a href="javascript:void(0)" onclick="filtrar('Acessórios'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Acessórios</a>
-            <a href="javascript:void(0)" onclick="filtrar('Loja'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Loja</a>
+            <a href="javascript:void(0)" onclick="scrollToGrid('Streaming'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Streaming</a>
+            <a href="javascript:void(0)" onclick="scrollToGrid('Acessórios'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Acessórios</a>
+            <a href="javascript:void(0)" onclick="scrollToGrid('Loja'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Loja</a>
             <a href="https://wa.me/5591985156039" target="_blank" class="p-4 rounded-xl hover:bg-slate-50 transition-colors text-red-700">Suporte WhatsApp</a>
         </div>
     </div>
@@ -291,6 +309,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Botão Flutuante Mobile -->
+    <button onclick="toggleCart()" class="md:hidden fixed bottom-6 right-6 z-[90] bg-red-700 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center animate-bounce-short active:scale-90 transition-transform">
+        <i class="fa-solid fa-cart-shopping text-xl"></i>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-slate-900 text-[10px] px-2 py-1 rounded-full border-2 border-white badge-pulse">0</span>
+    </button>
 
     <script src="./script.js?v=1.0.1" defer></script>
 </body>

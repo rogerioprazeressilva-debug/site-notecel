@@ -1,156 +1,270 @@
-// 0. CONFIGURAÇÃO SUPABASE (Substitua pelas suas chaves do painel do Supabase)
-var SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw';
+// 0. CONFIGURAÇÃO SUPABASE
+const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-if (SUPABASE_URL.indexOf("https://uaaslrletscnlqxctnee.supabase.co") !== -1) {
-    console.warn("⚠️ SISTEMA EM MODO DE CONFIGURAÇÃO: Insira as credenciais de produção nas variáveis de ambiente.");
+// CONFIGURAÇÕES E DADOS DOS PRODUTOS
+let produtos = [];
+
+let carrinho = JSON.parse(localStorage.getItem('notecel_cart')) || [];
+let isRegisterMode = false;
+
+// Função para salvar o carrinho no LocalStorage
+function salvarCarrinho() {
+    localStorage.setItem('notecel_cart', JSON.stringify(carrinho));
+    atualizarCarrinho();
 }
 
-var supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// 1. BANCO DE DADOS DE PRODUTOS E SERVIÇOS
-var produtos = [];
-
-// 2. ESTADO DA APLICAÇÃO (CARRINHO)
-var cart = JSON.parse(localStorage.getItem('notecel_cart')) || [];
-var currentUser = JSON.parse(localStorage.getItem('notecel_user')) || null;
-
-// Utils
-function formatarMoeda(valor) {
-    var n = Number(valor) || 0;
-    return n.toLocaleString('pt-br', { style: 'currency', currency: 'BRL' });
-}
-
-// --- FUNÇÕES DE NAVEGAÇÃO E FILTRO ---
-
-// Helper para pegar parâmetros da URL (ex: ?cat=Loja)
-function getQueryParam(name) {
-    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
-    return results ? decodeURIComponent(results[1]) : null;
-}
-
-// Helper para rolar até a vitrine e filtrar automaticamente
-function scrollToGrid(categoria) {
-    // Se não estiver na página da loja, redireciona
-    var path = window.location.pathname;
-    if (path.indexOf('loja') === -1) {
-        window.location.href = 'loja.html?cat=' + categoria;
-    } else {
-        filtrar(categoria);
-        var grid = document.getElementById('product-grid');
-        if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-}
-
-function filtrar(categoria) {
-    var grid = document.getElementById('product-grid');
-    var tituloPagina = document.querySelector('#hero h1');
-    
+// 1. RENDERIZAR PRODUTOS NA GRADE
+async function renderizarProdutos(categoriaFiltro = 'todos') {
+    const grid = document.getElementById('product-grid');
     if (!grid) return;
-    
-    // Força a visibilidade do container para que o loader e mensagens apareçam
-    var parent = grid.parentNode;
-    while (parent && parent !== document.body) {
-        if (parent.classList && parent.classList.contains('reveal')) {
-            parent.classList.add('reveal-active');
-        }
-        parent = parent.parentNode;
-    }
-    
-    grid.innerHTML = '<div class="col-span-full text-center py-10"><i class="fa-solid fa-circle-notch animate-spin text-3xl text-red-700"></i></div>';
 
-    if (produtos.length === 0) {
-        supabaseClient.from('produtos').select('*').then(function(res) {
-            if (res.error) {
-                grid.innerHTML = '<p class="col-span-full text-center text-red-500 py-10">Erro ao carregar produtos.</p>';
-                return;
-            }
-            produtos = res.data || [];
-            exibirProdutos(categoria);
-        });
+    // Busca produtos reais do banco de dados para garantir funcionamento 100%
+    const { data, error } = await supabaseClient.from('produtos').select('*');
+    if (error) return console.error("Erro ao carregar produtos:", error.message);
+    
+    produtos = data || [];
+    grid.innerHTML = '';
+    const listaFiltrada = categoriaFiltro === 'todos'
+        ? produtos
+        : produtos.filter(p => p.categoria === categoriaFiltro);
+
+    listaFiltrada.forEach(produto => {
+        grid.innerHTML += `
+            <div class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                <img src="${produto.imagem_url}" class="w-full h-48 object-cover rounded-2xl mb-4">
+                <span class="text-[10px] font-bold uppercase text-red-700 tracking-widest">${produto.categoria}</span>
+                <h3 class="font-bold text-slate-900 text-lg">${produto.nome}</h3>
+                <div class="flex justify-between items-center mt-4">
+                    <span class="font-black text-xl text-slate-900">R$ ${produto.preco.toFixed(2)}</span>
+                    <button onclick="adicionarAoCarrinho(${produto.id})" class="bg-slate-900 hover:bg-red-700 text-white p-3 rounded-xl transition-all active:scale-90">
+                        <i class="fa-solid fa-cart-plus"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// 2. LÓGICA DO CARRINHO
+function adicionarAoCarrinho(id) {
+    const produto = produtos.find(p => p.id === id);
+    
+    // Opcional: Evitar itens duplicados (comum em contas premium)
+    const jaExiste = carrinho.find(item => item.id === id);
+    if (jaExiste) {
+        alert("Este item já está no seu carrinho!");
+        return;
+    }
+
+    carrinho.push(produto);
+    salvarCarrinho();
+    
+    // Feedback visual: abre o carrinho automaticamente
+    if (document.getElementById('cartSidebar').classList.contains('translate-x-full')) {
+        toggleCart();
+    }
+}
+
+function atualizarCarrinho() {
+    const container = document.getElementById('cart-items');
+    const totalElement = document.getElementById('cart-total');
+    const countElements = document.querySelectorAll('#cart-count'); // Seleciona todos os contadores
+    
+    container.innerHTML = '';
+    let total = 0;
+
+    if (carrinho.length === 0) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-64 text-slate-400">
+                <i class="fa-solid fa-cart-shopping text-5xl mb-4 opacity-20"></i>
+                <p class="font-bold text-sm uppercase tracking-widest">Carrinho Vazio</p>
+            </div>
+        `;
     } else {
-        exibirProdutos(categoria);
+        carrinho.forEach((item, index) => {
+            total += item.preco;
+            container.innerHTML += `
+                <div class="flex items-center gap-4 bg-white border border-slate-100 p-4 rounded-2xl shadow-sm cart-item-enter">
+                    <img src="${item.imagem_url}" class="w-14 h-14 rounded-xl object-cover shadow-inner">
+                    <div class="flex-1">
+                        <h4 class="text-xs font-black text-slate-900 uppercase">${item.nome}</h4>
+                        <p class="text-red-700 font-black text-base">R$ ${item.preco.toFixed(2)}</p>
+                    </div>
+                    <button onclick="removerDoCarrinho(${index})" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    totalElement.innerText = `R$ ${total.toFixed(2)}`;
+    countElements.forEach(el => el.innerText = carrinho.length);
+}
+
+function removerDoCarrinho(index) {
+    carrinho.splice(index, 1);
+    salvarCarrinho();
+}
+
+// 3. INTERFACE (MODAIS E MENUS)
+function toggleCart() {
+    const sidebar = document.getElementById('cartSidebar');
+    const overlay = document.getElementById('cartOverlay');
+    sidebar.classList.toggle('translate-x-full');
+    overlay.classList.toggle('hidden');
+}
+
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('menuOverlay');
+    menu.classList.toggle('-translate-x-full');
+    overlay.classList.toggle('hidden');
+}
+
+function scrollToGrid(categoria) {
+    document.getElementById('pricing').scrollIntoView({ behavior: 'smooth' });
+    renderizarProdutos(categoria);
+}
+
+// 4. CHECKOUT REAL
+async function openCheckoutModal() {
+    if (carrinho.length === 0) {
+        alert("Adicione pelo menos um produto para continuar!");
+        return;
+    }
+
+    // Verifica se o usuário está logado antes de prosseguir
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        alert("Por favor, faça login para finalizar sua compra.");
+        openAuthModal();
+        return;
+    }
+
+    document.getElementById('checkoutModal').classList.remove('hidden');
+    // Inicia a fase de coleta de WhatsApp e reseta estados anteriores
+    mostrarCamposCheckout();
+}
+
+function mostrarCamposCheckout() {
+    document.getElementById('loader')?.classList.add('hidden');
+    document.getElementById('pixData').classList.add('hidden');
+    document.getElementById('successState').classList.add('hidden');
+    document.getElementById('checkoutFields').classList.remove('hidden');
+}
+
+async function checkout() {
+    const whatsapp = document.getElementById('whatsappInput').value;
+    const totalCarrinho = carrinho.reduce((acc, item) => acc + item.preco, 0);
+
+    if (whatsapp.length < 10) {
+        return alert("Por favor, insira um WhatsApp válido com DDD.");
+    }
+
+    document.getElementById('checkoutFields').classList.add('hidden');
+    document.getElementById('loader')?.classList.remove('hidden');
+
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        // Chamada para o backend PHP (XAMPP ou Servidor)
+        const response = await fetch('gerar_pix.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                total: totalCarrinho,
+                whatsapp: whatsapp,
+                cartItems: carrinho,
+                user_id: session?.user?.id || null,
+                email: session?.user?.email || "cliente@anonimo.com"
+            })
+        });
+
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+
+        // O PHP retorna 'qr_code' para o copia e cola e 'qr_code_base64' para a imagem do QR Code
+        if (result.qr_code) {
+            exibirPix(result.qr_code, result.qr_code_base64);
+            // Inicia a escuta em tempo real para aprovação automática
+            iniciarEscutaPagamento(result.id_pagamento);
+        }
+    } catch (error) {
+        console.error("Erro no checkout:", error);
+        alert("Erro ao conectar com o servidor: " + error.message);
+        mostrarCamposCheckout();
     }
 }
 
-function exibirProdutos(categoria) {
-    var grid = document.getElementById('product-grid');
-    var tituloPagina = document.querySelector('#hero h1');
-    var filtrados = [];
+function exibirPix(codigo, qrCodeBase64 = null) {
+    document.getElementById('loader')?.classList.add('hidden');
+    document.getElementById('pixData').classList.remove('hidden');
+    document.getElementById('checkoutFields').classList.add('hidden');
+    
+    // Insere o código no input ou botão visível
+    const pixInput = document.getElementById('pixCopiaCola');
+    if (pixInput) pixInput.value = codigo;
 
-    for (var i = 0; i < produtos.length; i++) {
-        if (categoria === 'todos' || (produtos[i].categoria || '').toLowerCase() === categoria.toLowerCase()) {
-            filtrados.push(produtos[i]);
+    const btnCopy = document.getElementById('btnCopy');
+    if (btnCopy) {
+        btnCopy.onclick = () => {
+            navigator.clipboard.writeText(codigo);
+            btnCopy.innerHTML = '<i class="fa-solid fa-check"></i> Código Copiado!';
+            btnCopy.classList.replace('bg-yellow-400', 'bg-green-500');
+            
+            setTimeout(() => {
+                btnCopy.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar Código PIX';
+                btnCopy.classList.replace('bg-green-500', 'bg-yellow-400');
+            }, 3000);
+        };
+    }
+
+    // Exibe o QR Code (Imagem real ou ícone de fallback)
+    const qrImg = document.getElementById('qrCodeImg');
+    if (qrImg && qrCodeBase64) {
+        qrImg.src = `data:image/jpeg;base64,${qrCodeBase64}`;
+    } else {
+        const qrcodePlaceholder = document.getElementById('qrcode');
+        if (qrcodePlaceholder) {
+            qrcodePlaceholder.innerHTML = `<p class="text-[10px] break-all p-2">${codigo.substring(0, 50)}...</p> <br> <i class="fa-solid fa-qrcode text-5xl"></i>`;
         }
-    }
-
-    if (tituloPagina) {
-        if(categoria === 'todos') {
-            tituloPagina.innerHTML = 'Contas Premium <br>com <span class="text-red-700">acesso imediato.</span>';
-        } else {
-            tituloPagina.innerText = categoria;
-        }
-    }
-
-    var html = '';
-    for (var j = 0; j < filtrados.length; j++) {
-        var p = filtrados[j];
-        html += '<div class="product-card bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">' +
-            '<div class="h-48 overflow-hidden">' +
-                '<img src="' + (p.imagem_url || 'https://via.placeholder.com/400x300') + '" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">' +
-            '</div>' +
-            '<div class="p-8">' +
-                '<span class="text-[10px] font-bold tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">' + (p.categoria || 'Digital') + '</span>' +
-                '<h3 class="text-lg font-bold mt-3 text-slate-900">' + p.nome + '</h3>' +
-                '<p class="text-slate-500 text-xs mt-1">' + (p.descricao || '') + '</p>' +
-                '<div class="mt-6 flex items-center justify-between">' +
-                    '<span class="text-2xl font-black text-slate-900">' + formatarMoeda(p.preco) + '</span>' +
-                    '<button onclick="addToCart(' + p.id + ')" class="bg-slate-900 hover:bg-red-700 text-white p-3 rounded-2xl shadow-lg"><i class="fa-solid fa-plus"></i></button>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-    }
-    grid.innerHTML = html;
-
-    var links = document.querySelectorAll('.nav-link');
-    for (var k = 0; k < links.length; k++) {
-        var linkText = links[k].innerText.trim();
-        var ehAtivo = (categoria === 'todos' && linkText === 'Início') || 
-                       (categoria === 'Streaming' && linkText === 'Streaming') ||
-                       (categoria === 'Acessórios' && linkText === 'Acessórios') ||
-                       (categoria === 'Loja' && linkText === 'Loja');
-
-        if (ehAtivo) {
-            links[k].classList.add('text-red-700', 'border-red-700');
-            links[k].classList.remove('border-transparent');
-        } else {
-            links[k].classList.remove('text-red-700', 'border-red-700');
-            links[k].classList.add('border-transparent');
-        }
-    }
-
-    // Atualiza links mobile de forma sincronizada
-    var mobileLinks = document.querySelectorAll('.nav-link-mobile');
-    for (var m = 0; m < mobileLinks.length; m++) {
-        var mLinkText = mobileLinks[m].innerText.trim();
-        var mEhAtivo = (categoria === 'todos' && mLinkText === 'Início') || 
-                        (categoria === 'Streaming' && mLinkText === 'Streaming') ||
-                        (categoria === 'Acessórios' && mLinkText === 'Acessórios') ||
-                        (categoria === 'Loja' && mLinkText === 'Loja');
-
-        if(mEhAtivo) mobileLinks[m].className = 'nav-link-mobile p-4 rounded-xl bg-red-50 text-red-700 transition-colors';
-        else mobileLinks[m].className = 'nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors';
-    }
-
-    // Scroll suave para a grade de produtos ao filtrar (melhora a UX no mobile)
-    if(categoria !== 'todos' && grid.innerHTML !== "") {
-        document.getElementById('product-grid').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
 
-// --- SISTEMA DE AUTENTICAÇÃO ---
-var isRegisterMode = false;
+function iniciarEscutaPagamento(idPagamento) {
+    if (!idPagamento) return;
+    
+    // Canal Realtime para ouvir mudanças na tabela 'pedidos' específicas deste PIX
+    supabaseClient
+        .channel(`pedido_${idPagamento}`)
+        .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'pedidos', 
+            filter: `pix_id=eq.${idPagamento}` 
+        }, (payload) => {
+            if (payload.new.status === 'PAGO') {
+                document.getElementById('pixData').classList.add('hidden');
+                document.getElementById('successState').classList.remove('hidden');
+                
+                // Limpa o carrinho após a compra confirmada
+                carrinho = [];
+                salvarCarrinho();
+            }
+        })
+        .subscribe();
+}
 
+function closeModal() {
+    document.getElementById('checkoutModal').classList.add('hidden');
+    document.getElementById('pixData').classList.add('hidden');
+    document.getElementById('successState').classList.add('hidden');
+}
+
+// 5. LÓGICA DE AUTENTICAÇÃO
 function openAuthModal() {
     document.getElementById('authModal').classList.remove('hidden');
 }
@@ -161,448 +275,99 @@ function closeAuthModal() {
 
 function setAuthMode(register) {
     isRegisterMode = register;
-    var tabLogin = document.getElementById('tabLogin');
-    var tabRegister = document.getElementById('tabRegister');
-    var registerFields = document.getElementById('registerFields');
-    var submitBtn = document.getElementById('authSubmitBtn');
-    var btnSpan = submitBtn ? submitBtn.querySelector('span') : null;
+    const tabLogin = document.getElementById('tabLogin');
+    const tabRegister = document.getElementById('tabRegister');
+    const registerFields = document.getElementById('registerFields');
+    const submitBtnText = document.querySelector('#authSubmitBtn span');
 
-    if (isRegisterMode) {
-        tabRegister.className = "flex-1 pb-4 text-sm font-bold uppercase tracking-wider transition-all border-b-2 border-red-700 text-red-700";
-        tabLogin.className = "flex-1 pb-4 text-sm font-bold uppercase tracking-wider transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+    if (register) {
+        tabRegister.classList.add('border-red-700', 'text-red-700');
+        tabLogin.classList.remove('border-red-700', 'text-red-700');
         registerFields.classList.remove('hidden');
-        if (btnSpan) btnSpan.innerText = "Criar Minha Conta";
+        submitBtnText.innerText = "Criar Conta";
     } else {
-        tabLogin.className = "flex-1 pb-4 text-sm font-bold uppercase tracking-wider transition-all border-b-2 border-red-700 text-red-700";
-        tabRegister.className = "flex-1 pb-4 text-sm font-bold uppercase tracking-wider transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+        tabLogin.classList.add('border-red-700', 'text-red-700');
+        tabRegister.classList.remove('border-red-700', 'text-red-700');
         registerFields.classList.add('hidden');
-        if (btnSpan) btnSpan.innerText = "Entrar";
+        submitBtnText.innerText = "Entrar";
     }
 }
 
-function togglePasswordVisibility() {
-    var passwordInput = document.getElementById('authPass');
-    var toggleIcon = document.getElementById('passwordToggleIcon');
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.classList.replace('fa-eye', 'fa-eye-slash');
-    } else {
-        passwordInput.type = 'password';
-        toggleIcon.classList.replace('fa-eye-slash', 'fa-eye');
-    }
-}
-
-function handleAuth(event) {
+async function handleAuth(event) {
     event.preventDefault();
-    var email = document.getElementById('authEmail').value;
-    var senha = document.getElementById('authPass').value;
-    var btn = document.getElementById('authSubmitBtn');
-    var originalContent = btn.innerHTML;
+    const email = document.getElementById('authEmail').value;
+    const password = document.getElementById('authPass').value;
+    const btn = document.getElementById('authSubmitBtn');
 
     btn.disabled = true;
-    btn.innerHTML = 'Processando...';
-    
-    if(isRegisterMode) {
-        var nome = document.getElementById('regNome').value;
-        var whatsapp = document.getElementById('regWhatsapp').value;
+    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Processando...';
 
-        supabaseClient.auth.signUp({
-            email: email,
-            password: senha,
-            options: { data: { nome: nome, whatsapp: whatsapp } }
-        }).then(function(res) {
-            if (res.error) alert(res.error.message);
-            else if (res.data.user && res.data.session === null) {
-                alert("Cadastro realizado! Por favor, verifique seu e-mail para confirmar a conta antes de fazer login.");
-                setAuthMode(false);
-            } else alert("Cadastro realizado com sucesso!");
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
+    if (isRegisterMode) {
+        const nome = document.getElementById('regNome').value;
+        const whatsapp = document.getElementById('regWhatsapp').value;
+
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: nome, whatsapp: whatsapp } }
         });
+
+        if (error) alert("Erro no cadastro: " + error.message);
+        else alert("Verifique seu e-mail para confirmar o cadastro!");
     } else {
-        supabaseClient.auth.signInWithPassword({ email: email, password: senha }).then(function(res) {
-            if (res.error) alert(res.error.message);
-            else {
-                currentUser = {
-                    id: res.data.user.id,
-                    nome: res.data.user.user_metadata.nome,
-                    email: res.data.user.email,
-                    whatsapp: res.data.user.user_metadata.whatsapp
-                };
-                localStorage.setItem('notecel_user', JSON.stringify(currentUser));
-                updateUserUI();
-                closeAuthModal();
-                alert("Bem-vindo, " + currentUser.nome + "!");
-            }
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
-        });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) alert("Erro no login: " + error.message);
+        else {
+            closeAuthModal();
+            updateUserUI(data.user);
+        }
+    }
+    btn.disabled = false;
+    btn.innerHTML = isRegisterMode ? '<span>Criar Conta</span>' : '<span>Entrar</span>';
+}
+
+function updateUserUI(user) {
+    if (user) {
+        document.getElementById('userNameDisplay').innerText = user.user_metadata.full_name || user.email;
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        if (user.user_metadata.whatsapp) {
+            document.getElementById('whatsappInput').value = user.user_metadata.whatsapp;
+        }
     }
 }
 
-function logout() {
-    if (confirm("Deseja realmente sair da sua conta?")) {
-        supabaseClient.auth.signOut().then(function() {
-            currentUser = null;
-            localStorage.removeItem('notecel_user');
-            updateUserUI();
-            var sidebar = document.getElementById('cartSidebar');
-            if (sidebar && sidebar.classList.contains('translate-x-0')) {
-                toggleCart();
-            }
-        });
-    }
-}
+async function carregarMeusPedidos() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return;
 
-function updateUserUI() {
-    var nameDisplay = document.getElementById('userNameDisplay');
-    var logoutBtn = document.getElementById('logoutBtn');
-    var userBtn = document.getElementById('userBtn');
+    // Busca os pedidos e faz um join com a tabela de logins para mostrar as credenciais
+    const { data: pedidos, error } = await supabaseClient
+        .from('pedidos')
+        .select(`
+            *,
+            logins_disponiveis (username, password)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (!nameDisplay || !logoutBtn || !userBtn) return;
-
-    if(currentUser) {
-        var nomeExibicao = (currentUser.nome || 'Usuário').split(' ')[0];
-        nameDisplay.innerText = "Olá, " + nomeExibicao;
-        nameDisplay.classList.remove('hidden');
-        logoutBtn.classList.remove('hidden');
-        userBtn.onclick = null; // Desabilita abertura do modal ao clicar no nome
-        userBtn.classList.add('cursor-default');
-    } else {
-        nameDisplay.innerText = "Entrar";
-        logoutBtn.classList.add('hidden');
-        userBtn.onclick = openAuthModal;
-        userBtn.classList.remove('cursor-default');
-    }
-}
-
-// --- FUNÇÕES DO CARRINHO ---
-function toggleCart() {
-    var sidebar = document.getElementById('cartSidebar');
-    var overlay = document.getElementById('cartOverlay');
-    
-    if (!sidebar || !overlay) return;
-
-    var isOpen = sidebar.classList.contains('translate-x-0');
-
-    if (!isOpen) {
-        sidebar.classList.add('translate-x-0');
-        overlay.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    } else {
-        sidebar.classList.remove('translate-x-0');
-        overlay.classList.add('hidden');
-        document.body.style.overflow = '';
-    }
-}
-
-function toggleMobileMenu() {
-    var menu = document.getElementById('mobileMenu');
-    var overlay = document.getElementById('menuOverlay');
-    
-    if (!menu || !overlay) return;
-
-    var isOpen = menu.classList.contains('translate-x-0');
-
-    if (!isOpen) {
-        menu.classList.add('translate-x-0');
-        overlay.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    } else {
-        menu.classList.remove('translate-x-0');
-        overlay.classList.add('hidden');
-        document.body.style.overflow = '';
-    }
-}
-
-function addToCart(id) {
-    if (produtos.length === 0) {
-        alert("Os produtos ainda estão sendo carregados. Por favor, aguarde um instante.");
+    if (error) {
+        console.error("Erro ao carregar pedidos:", error.message);
         return;
     }
-
-    var productToAdd = null;
-    for (var i = 0; i < produtos.length; i++) {
-        if (produtos[i].id == id) {
-            productToAdd = produtos[i];
-            break;
-        }
-    }
-
-    if (!productToAdd) {
-        alert("Não foi possível adicionar o produto ao carrinho. O produto não foi encontrado ou ainda não foi carregado.");
-        return;
-    }
-
-    var existingItemIndex = -1;
-    for (var j = 0; j < cart.length; j++) {
-        if (cart[j].id == id) {
-            existingItemIndex = j;
-            break;
-        }
-    }
     
-    if (existingItemIndex !== -1) {
-        cart[existingItemIndex].quantidade++;
-    } else {
-        var newItem = {
-            id: productToAdd.id,
-            nome: productToAdd.nome,
-            preco: productToAdd.preco,
-            imagem_url: productToAdd.imagem_url,
-            quantidade: 1
-        };
-        cart.push(newItem);
-    }
-    
-    saveCart();
-
-    var countElement = document.getElementById('cart-count');
-    if (countElement) {
-        var cartButton = countElement.parentNode; 
-        if (cartButton) {
-            cartButton.classList.add('cart-bump');
-            setTimeout(function() { cartButton.classList.remove('cart-bump'); }, 400);
-        }
-    }
-
-    var sidebar = document.getElementById('cartSidebar');
-    if (sidebar && !sidebar.classList.contains('translate-x-0')) toggleCart();
+    console.log("Seus pedidos:", pedidos);
+    return pedidos;
 }
 
-function updateQuantity(id, delta) {
-    var index = -1;
-    for (var i = 0; i < cart.length; i++) {
-        if (cart[i].id == id) {
-            index = i;
-            break;
-        }
-    }
-
-    if (index !== -1) {
-        cart[index].quantidade += delta;
-        if (cart[index].quantidade <= 0) removeFromCart(index);
-        else saveCart();
-    }
+async function logout() {
+    await supabaseClient.auth.signOut();
+    location.reload();
 }
 
-function removeFromCart(index) {
-    cart.splice(index, 1);
-    saveCart();
-}
-
-function saveCart() {
-    localStorage.setItem('notecel_cart', JSON.stringify(cart));
-    updateCartUI();
-}
-
-function updateCartUI() {
-    var container = document.getElementById('cart-items');
-    var totalElement = document.getElementById('cart-total');
-    var countElement = document.getElementById('cart-count');
-    
-    if (!container || !totalElement || !countElement) return;
-
-    var totalItens = 0;
-    for (var i = 0; i < cart.length; i++) totalItens += cart[i].quantidade;
-    countElement.innerText = totalItens;
-    
-    var total = 0;
-    if (cart.length === 0) {
-        container.innerHTML = '<p class="text-center text-slate-400 mt-10">Carrinho vazio</p>';
-    } else {
-        var html = '';
-        for (var k = 0; k < cart.length; k++) {
-            var item = cart[k];
-            var subtotal = item.preco * item.quantidade;
-            total += subtotal;
-            html += '<div class="flex flex-col bg-slate-50 p-3 rounded-lg border border-slate-200 gap-2">' +
-                        '<div class="flex justify-between items-start gap-3">' +
-                            '<img src="' + (item.imagem_url || 'https://via.placeholder.com/50') + '" class="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm">' +
-                            '<div class="flex-1">' +
-                                '<p class="font-bold text-sm text-slate-800">' + item.nome + '</p>' +
-                                '<p class="text-red-700 font-bold text-xs">' + formatarMoeda(item.preco) + ' un.</p>' +
-                            '</div>' +
-                            '<button onclick="removeFromCart(' + k + ')" class="text-slate-300 hover:text-red-500 transition"><i class="fa-solid fa-trash-can"></i></button>' +
-                        '</div>' +
-                        '<div class="flex justify-between items-center mt-1">' +
-                            '<div class="flex items-center gap-3 bg-white border rounded-md px-2 py-1">' +
-                                '<button onclick="updateQuantity(' + item.id + ', -1)" class="text-red-700 px-1 rounded">-</button>' +
-                                '<span class="text-xs font-bold w-4 text-center">' + item.quantidade + '</span>' +
-                                '<button onclick="updateQuantity(' + item.id + ', 1)" class="text-green-700 px-1 rounded">+</button>' +
-                            '</div>' +
-                            '<p class="text-slate-900 font-black text-sm">' + formatarMoeda(subtotal) + '</p>' +
-                        '</div>' +
-                    '</div>';
-        }
-        container.innerHTML = html;
-    }
-    totalElement.innerText = formatarMoeda(total);
-}
-
-// --- FUNÇÕES DE CHECKOUT PIX ---
-function closeModal() {
-    document.getElementById('checkoutModal').classList.add('hidden');
-}
-
-function openCheckoutModal() {
-    if (cart.length === 0) return alert("Adicione itens antes de pagar!");
-    
-    if (!currentUser) {
-        alert("Para sua segurança, identifique-se antes de finalizar a compra.");
-        return openAuthModal();
-    }
-    
-    document.getElementById('checkoutModal').classList.remove('hidden');
-    document.getElementById('loader').classList.add('hidden');
-    document.getElementById('pixData').classList.add('hidden');
-    document.getElementById('successState').classList.add('hidden');
-    document.getElementById('checkoutFields').classList.remove('hidden');
-    
-    // Preenche whatsapp se já existir no perfil
-    if (currentUser && currentUser.whatsapp) {
-        document.getElementById('whatsappInput').value = currentUser.whatsapp;
-    }
-}
-
-function checkout() {
-    var whatsappInput = document.getElementById('whatsappInput');
-    var whatsappNumber = whatsappInput ? whatsappInput.value.replace(/\D/g, '') : '';
-    
-    if (whatsappNumber.length < 10) {
-        return alert("Por favor, informe seu WhatsApp com DDD para receber o acesso.");
-    }
-
-    var total = 0;
-    for (var i = 0; i < cart.length; i++) total += (cart[i].preco * cart[i].quantidade);
-    
-    if (total < 1.00) {
-        return alert("O valor mínimo para pagamento via PIX é R$ 1,00.");
-    }
-
-    document.getElementById('checkoutFields').classList.add('hidden');
-    document.getElementById('loader').classList.remove('hidden');
-    document.getElementById('qrcode').innerHTML = '';
-    
-    var userName = 'Cliente';
-    if (currentUser) {
-        userName = currentUser.nome || (currentUser.user_metadata ? currentUser.user_metadata.nome : 'Cliente');
-    }
-    
-    var descricao = "Pedido Notecel (" + userName + ") - Login Digital";
-
-    supabaseClient.functions.invoke('gerar-pix', {
-        body: { 
-            valor: total, 
-            descricao: descricao, 
-            email: currentUser.email, 
-            customer_whatsapp: whatsappNumber, 
-            cartItems: cart 
-        }
-    }).then(function(res) {
-        if (res.error) throw res.error;
-        exibirPix(res.data.qr_code_base64, res.data.qr_code, res.data.id_pagamento);
-    }).catch(function(err) {
-        alert('Erro ao processar checkout: ' + err.message);
-        closeModal();
-    });
-}
-
-function exibirPix(base64, copiaCola, id) {
-    if (!base64) return closeModal();
-
-    var qrImg = 'data:image/png;base64,' + base64;
-    var btnCopy = document.getElementById('btnCopy');
-
-    document.getElementById('qrcode').innerHTML = '<img src="' + qrImg + '" class="w-48 h-48 mx-auto shadow-lg rounded-lg">';
-    btnCopy.onclick = function() {
-        navigator.clipboard.writeText(copiaCola);
-        var originalHTML = btnCopy.innerHTML;
-        btnCopy.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
-        btnCopy.classList.replace('bg-yellow-400', 'bg-green-500');
-        btnCopy.classList.add('text-white');
-
-        setTimeout(function() {
-            btnCopy.innerHTML = originalHTML;
-            btnCopy.classList.replace('bg-green-500', 'bg-yellow-400');
-            btnCopy.classList.remove('text-white');
-        }, 2000);
-    };
-
-    document.getElementById('loader').classList.add('hidden');
-    document.getElementById('pixData').classList.remove('hidden');
-
-    verificarPagamento(id);
-}
-
-function verificarPagamento(pix_id) {
-    if (!pix_id) return;
-    
-    supabaseClient
-        .channel('schema-db-changes')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pedidos', 
-            filter: 'pix_id=eq.' + pix_id 
-        }, function(payload) {
-            if (payload.new.status === 'PAGO') {
-                var pixData = document.getElementById('pixData');
-                var successState = document.getElementById('successState');
-                
-                pixData.classList.add('hidden');
-                successState.classList.remove('hidden');
-
-                cart = [];
-                saveCart();
-                supabaseClient.removeAllChannels();
-            }
-        }).subscribe();
-}
-
-// --- ANIMAÇÃO DE REVELAÇÃO (INTERSECTION OBSERVER) ---
-function initScrollReveal() {
-    var reveals = document.querySelectorAll('.reveal');
-    if (!window.IntersectionObserver) {
-        for (var j = 0; j < reveals.length; j++) {
-            reveals[j].classList.add('reveal-active');
-        }
-        return;
-    }
-    var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('reveal-active');
-            }
-        });
-    }, { threshold: 0.1 });
-
-    for (var i = 0; i < reveals.length; i++) {
-        observer.observe(reveals[i]);
-    }
-}
-
-window.onload = function() {
-    // Limpa Service Workers antigos que causam o erro "Resource not cached"
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-            for(var i = 0; i < regs.length; i++) regs[i].unregister();
-        });
-    }
-
-    // Lógica de inicialização inteligente baseada na página
-    var catParam = getQueryParam('cat');
-    var path = window.location.pathname;
-    var isShopPage = path.indexOf('loja') !== -1;
-
-    if (isShopPage) {
-        filtrar(catParam || 'todos');
-    } else if (document.getElementById('product-grid')) {
-        filtrar('todos');
-    }
-
-    updateCartUI();
-    updateUserUI();
-    initScrollReveal();
+// INICIALIZAÇÃO
+window.onload = async () => {
+    renderizarProdutos();
+    atualizarCarrinho(); // Atualiza a UI do carrinho com os itens do localStorage
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (user) updateUserUI(user);
 };
