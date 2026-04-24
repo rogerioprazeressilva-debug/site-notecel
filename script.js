@@ -1,10 +1,41 @@
+// Este é o seu "estoque" virtual. O site usa isso para criar os cards automaticamente.
+let produtos = [
+    { 
+        id: 1, 
+        nome: "Netflix Premium - 4K", 
+        preco: 19.90, 
+        categoria: "Streaming", 
+        imagem: "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&q=80" 
+    },
+    { 
+        id: 2, 
+        nome: "Disney+ & Star+ (Combo)", 
+        preco: 24.90, 
+        categoria: "Streaming", 
+        imagem: "https://images.unsplash.com/photo-1633448555759-387ee28ac7fb?w=500&q=80" 
+    },
+    { 
+        id: 3, 
+        nome: "Gift Card Razer Gold R$ 50", 
+        preco: 50.00, 
+        categoria: "Acessórios", 
+        imagem: "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=500&q=80" 
+    },
+    { 
+        id: 4, 
+        nome: "Controle Gamer Pro", 
+        preco: 189.90, 
+        categoria: "Loja", 
+        imagem: "https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=500&q=80" 
+    }
+];
+
+// O resto do código (carrinho, filtros, etc) vem logo abaixo...
+
 // 0. CONFIGURAÇÃO SUPABASE
 const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// CONFIGURAÇÕES E DADOS DOS PRODUTOS
-let produtos = [];
 
 let carrinho = JSON.parse(localStorage.getItem('notecel_cart')) || [];
 let isRegisterMode = false;
@@ -22,9 +53,10 @@ async function renderizarProdutos(categoriaFiltro = 'todos') {
 
     // Busca produtos reais do banco de dados para garantir funcionamento 100%
     const { data, error } = await supabaseClient.from('produtos').select('*');
-    if (error) return console.error("Erro ao carregar produtos:", error.message);
-    
-    produtos = data || [];
+    if (!error && data && data.length > 0) {
+        produtos = data;
+    }
+
     grid.innerHTML = '';
     const listaFiltrada = categoriaFiltro === 'todos'
         ? produtos
@@ -33,7 +65,7 @@ async function renderizarProdutos(categoriaFiltro = 'todos') {
     listaFiltrada.forEach(produto => {
         grid.innerHTML += `
             <div class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                <img src="${produto.imagem_url}" class="w-full h-48 object-cover rounded-2xl mb-4">
+                <img src="${produto.imagem_url || produto.imagem}" class="w-full h-48 object-cover rounded-2xl mb-4">
                 <span class="text-[10px] font-bold uppercase text-red-700 tracking-widest">${produto.categoria}</span>
                 <h3 class="font-bold text-slate-900 text-lg">${produto.nome}</h3>
                 <div class="flex justify-between items-center mt-4">
@@ -87,7 +119,7 @@ function atualizarCarrinho() {
             total += item.preco;
             container.innerHTML += `
                 <div class="flex items-center gap-4 bg-white border border-slate-100 p-4 rounded-2xl shadow-sm cart-item-enter">
-                    <img src="${item.imagem_url}" class="w-14 h-14 rounded-xl object-cover shadow-inner">
+                    <img src="${item.imagem_url || item.imagem}" class="w-14 h-14 rounded-xl object-cover shadow-inner">
                     <div class="flex-1">
                         <h4 class="text-xs font-black text-slate-900 uppercase">${item.nome}</h4>
                         <p class="text-red-700 font-black text-base">R$ ${item.preco.toFixed(2)}</p>
