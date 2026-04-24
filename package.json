@@ -2,13 +2,11 @@
   "name": "site-notecel",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "mkdir -p dist && tailwindcss -i ./input.css -o ./dist/output.css --minify",
-    "start": "node server.js",
-    "dev:css": "tailwindcss -i ./input.css -o ./dist/output.css --watch",
-    "build:css": "tailwindcss -i ./input.css -o ./dist/output.css --minify"
+    "build": "mkdir -p public && tailwindcss -i ./input.css -o ./public/output.css --minify && cp index.html script.js public/",
+    "dev:css": "tailwindcss -i ./input.css -o ./public/output.css --watch",
+    "build:css": "tailwindcss -i ./input.css -o ./public/output.css --minify"
   },
   "keywords": [],
   "author": "",
@@ -16,15 +14,5 @@
   "type": "commonjs",
   "devDependencies": {
     "tailwindcss": "^3.4.0"
-  },
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "cors": "^2.8.6",
-    "dotenv": "^16.6.1",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mercadopago": "^2.12.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
   }
 }

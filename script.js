@@ -245,10 +245,12 @@ function updateUserUI() {
     const logoutBtn = document.getElementById('logoutBtn');
     const userBtn = document.getElementById('userBtn');
 
-    if (!nameDisplay || !userBtn || !logoutBtn) return;
+    if (!nameDisplay || !logoutBtn || !userBtn) return;
 
     if(currentUser) {
-        nameDisplay.innerText = `Olá, ${currentUser.nome.split(' ')[0]}`;
+        const nomeBruto = currentUser.nome || currentUser.user_metadata?.nome || 'Usuário';
+        const primeiroNome = nomeBruto.split(' ')[0];
+        nameDisplay.innerText = `Olá, ${primeiroNome}`;
         nameDisplay.classList.remove('hidden');
         logoutBtn.classList.remove('hidden');
         userBtn.onclick = null; // Desabilita abertura do modal ao clicar no nome
@@ -264,7 +266,8 @@ function updateUserUI() {
 // --- FUNÇÕES DO CARRINHO ---
 function toggleCart() {
     document.getElementById('cartSidebar').classList.toggle('cart-open');
-    document.getElementById('cartOverlay').classList.toggle('hidden');
+    const overlay = document.getElementById('cartOverlay');
+    if (overlay) overlay.classList.toggle('hidden');
 }
 
 function toggleMobileMenu() {
