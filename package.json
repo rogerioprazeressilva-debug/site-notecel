@@ -4,9 +4,9 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "mkdir -p public && tailwindcss -i ./input.css -o ./public/output.css --minify && cp index.html script.js public/",
-    "dev:css": "tailwindcss -i ./input.css -o ./public/output.css --watch",
-    "build:css": "tailwindcss -i ./input.css -o ./public/output.css --minify"
+    "build": "tailwindcss -i ./input.css -o ./output.css --minify",
+    "dev": "tailwindcss -i ./input.css -o ./output.css --watch",
+    "build:css": "tailwindcss -i ./input.css -o ./output.css --minify"
   },
   "keywords": [],
   "author": "",

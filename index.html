@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOTECEL | Contas Premium & Logins</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="/output.css">
+    <link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23b91c1c%22/><text y=%22.75em%22 x=%2250%%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22900%22 font-size=%2270%22 fill=%22white%22>N</text></svg>">
+    <link rel="stylesheet" href="./output.css?v=1.0.1">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -25,7 +26,8 @@
         <div class="hidden md:flex items-center gap-8 text-[12px] font-bold uppercase tracking-widest text-slate-600">
     <a href="javascript:void(0)" onclick="filtrar('todos')" class="nav-link hover:text-red-700 transition-colors">Início</a>
     <a href="javascript:void(0)" onclick="filtrar('Streaming')" class="nav-link hover:text-red-700 transition-colors">Streaming</a>
-    <a href="javascript:void(0)" onclick="filtrar('Games')" class="nav-link hover:text-red-700 transition-colors">Games</a>
+    <a href="javascript:void(0)" onclick="filtrar('Acessórios')" class="nav-link hover:text-red-700 transition-colors">Acessórios</a>
+    <a href="javascript:void(0)" onclick="filtrar('Loja')" class="nav-link hover:text-red-700 transition-colors">Loja</a>
     <a href="https://wa.me/5591985156039" target="_blank" class="nav-link hover:text-red-700 transition-colors">Suporte</a>
 </div>
 
@@ -40,12 +42,12 @@
                 </button>
             </div>
 
-            <button onclick="toggleCart()" class="relative bg-slate-900 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-lg transition-all active:scale-90">
+            <button id="cartBtnHeader" onclick="toggleCart()" class="relative bg-slate-900 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-lg transition-all active:scale-90">
                 <i class="fa-solid fa-cart-shopping text-lg"></i>
                 <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full border-2 border-white shadow-md">0</span>
             </button>
             
-            <button id="mobileMenuBtn" class="md:hidden text-2xl text-slate-800">
+            <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="md:hidden text-2xl text-slate-800 transition-transform active:scale-90">
                 <i class="fa-solid fa-bars-staggered"></i>
             </button>
         </div>
@@ -124,12 +126,12 @@
             </div>
             <div class="bg-slate-900 p-10 rounded-[2.5rem] border-4 border-red-700 shadow-2xl scale-105 relative">
                 <div class="absolute -top-5 left-1/2 -translate-x-1/2 bg-red-700 text-white text-[10px] font-bold px-4 py-1 rounded-full uppercase">Mais Procurado</div>
-                <h3 class="text-xl font-bold text-white">Games & Gift Cards</h3>
+                <h3 class="text-xl font-bold text-white">Acessórios & Gift Cards</h3>
                 <div class="my-8">
                     <span class="text-slate-400 text-sm italic">A partir de</span><br>
                     <span class="text-4xl font-black text-white">R$ 19,90</span>
                 </div>
-                <button onclick="scrollToGrid('Games')" class="w-full py-4 bg-red-700 hover:bg-red-800 text-white font-bold rounded-2xl transition">Explorar Games</button>
+                <button onclick="scrollToGrid('Acessórios')" class="w-full py-4 bg-red-700 hover:bg-red-800 text-white font-bold rounded-2xl transition">Explorar Acessórios</button>
             </div>
             <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all">
                 <h3 class="text-xl font-bold text-slate-900">Combos VIP</h3>
@@ -155,9 +157,27 @@
     </footer>
 
     <!-- Overlay do Carrinho (Fundo escuro ao abrir) -->
-    <div id="cartOverlay" onclick="toggleCart()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden"></div>
+    <div id="cartOverlay" onclick="toggleCart()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
+    
+    <!-- Overlay do Menu Mobile -->
+    <div id="menuOverlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
 
-    <div id="cartSidebar" class="cart-sidebar fixed top-0 right-0 w-full max-w-sm h-full bg-white z-50 shadow-2xl translate-x-full flex flex-col">
+    <!-- Sidebar Menu Mobile (Lado Esquerdo) -->
+    <div id="mobileMenu" class="fixed top-0 left-0 w-full max-w-[280px] h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 -translate-x-full">
+        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
+            <h2 class="font-bold text-xl tracking-tight">Menu Notecel</h2>
+            <button onclick="toggleMobileMenu()" class="text-2xl text-slate-400 hover:text-white transition-colors">&times;</button>
+        </div>
+        <div class="flex flex-col p-4 gap-2 text-sm font-bold uppercase tracking-widest text-slate-600">
+            <a href="javascript:void(0)" onclick="filtrar('todos'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Início</a>
+            <a href="javascript:void(0)" onclick="filtrar('Streaming'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Streaming</a>
+            <a href="javascript:void(0)" onclick="filtrar('Acessórios'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Acessórios</a>
+            <a href="javascript:void(0)" onclick="filtrar('Loja'); toggleMobileMenu()" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Loja</a>
+            <a href="https://wa.me/5591985156039" target="_blank" class="p-4 rounded-xl hover:bg-slate-50 transition-colors text-red-700">Suporte WhatsApp</a>
+        </div>
+    </div>
+
+    <div id="cartSidebar" class="cart-sidebar fixed top-0 right-0 w-full max-w-sm h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 translate-x-full">
         <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center relative">
             <h2 class="font-bold text-xl">Meu Carrinho</h2>
             <button onclick="toggleCart()" class="text-2xl text-slate-400 hover:text-white transition-colors">&times;</button>
@@ -169,7 +189,7 @@
                 <span>Total:</span>
                 <span id="cart-total" class="text-red-700">R$ 0,00</span>
             </div>
-            <button onclick="checkout()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition">
+            <button onclick="openCheckoutModal()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition">
                 Finalizar Pagamento PIX
             </button>
         </div>
@@ -232,17 +252,31 @@
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-700 mx-auto"></div>
                 <p class="mt-4 text-slate-600 font-bold">Gerando QR Code PIX...</p>
             </div>
+            
+            <!-- Fase 1: Coleta de Dados -->
+            <div id="checkoutFields" class="hidden">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">Confirmar Pedido</h2>
+                <p class="text-slate-500 text-sm mb-6 leading-relaxed">Informe seu WhatsApp para receber os dados de acesso automaticamente após o pagamento.</p>
+                
+                <div class="relative mb-6">
+                    <i class="fa-brands fa-whatsapp absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="whatsappInput" placeholder="WhatsApp para envio do login (DDD+Número)" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-red-700 outline-none transition-all" required>
+                </div>
+                
+                <button onclick="checkout()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition mb-4">
+                    Gerar QR Code PIX
+                </button>
+                <button onclick="closeModal()" class="text-slate-400 text-xs hover:text-red-700 font-bold underline uppercase tracking-widest">Voltar</button>
+            </div>
 
+            <!-- Fase 2: Exibição do PIX -->
             <div id="pixData" class="hidden">
                 <h2 class="text-2xl font-bold text-slate-900 mb-2 italic">NOTECEL PAY</h2>
                 <div id="qrcode" class="bg-slate-100 p-4 rounded-2xl mb-6 inline-block border-2 border-red-700"></div>
                 <button id="btnCopy" class="w-full bg-yellow-400 hover:bg-yellow-500 text-red-900 font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition">
                     <i class="fa-regular fa-copy"></i> Copiar Código PIX
                 </button>
-                <div class="relative mb-4">
-                    <i class="fa-brands fa-whatsapp absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" id="whatsappInput" placeholder="WhatsApp para envio do login (DDD+Número)" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-red-700 outline-none transition-all" required>
-                </div>
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-4">O acesso será enviado ao WhatsApp informado.</p>
                 <button onclick="closeModal()" class="text-slate-400 text-xs hover:text-red-700 font-bold underline uppercase tracking-widest">Cancelar e Sair</button>
             </div>
 
@@ -258,6 +292,6 @@
         </div>
     </div>
 
-    <script src="/script.js" defer></script>
+    <script src="./script.js?v=1.0.1" defer></script>
 </body>
 </html>

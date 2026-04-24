@@ -5,14 +5,31 @@ body {
     scroll-behavior: smooth;
 }
 
-.cart-sidebar { transition: transform 0.3s ease-in-out; }
-.cart-open { transform: translateX(0) !important; }
+.cart-sidebar { 
+    position: fixed;
+    transform: translateX(100%);
+    will-change: transform;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
 
-/* Overlay do Carrinho */
-#cartOverlay.hidden { opacity: 0; pointer-events: none; }
-#cartOverlay { 
+.translate-x-0 { 
+    transform: translateX(0) !important; 
+}
+
+/* Overlay do Carrinho - Garante visibilidade e transição */
+#cartOverlay {
+    display: block; 
     opacity: 1; 
+    pointer-events: auto; 
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     transition: opacity 0.3s ease-in-out; 
+}
+
+#cartOverlay.hidden { 
+    display: none !important; 
+    opacity: 0; 
+    pointer-events: none; 
 }
 
 .glass {

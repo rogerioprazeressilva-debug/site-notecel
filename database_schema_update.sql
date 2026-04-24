@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos (
 ALTER TABLE public.pedidos ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Usuários veem seus próprios pedidos" ON public.pedidos;
 CREATE POLICY "Usuários veem seus próprios pedidos" ON public.pedidos FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Qualquer um pode criar pedidos" ON public.pedidos;
 CREATE POLICY "Qualquer um pode criar pedidos" ON public.pedidos FOR INSERT TO anon, authenticated WITH CHECK (true);
 
 -- 4. Adicionar chaves estrangeiras após a criação de ambas as tabelas
@@ -83,7 +84,7 @@ SELECT 'Netflix Premium 4K', 14.90, 'Streaming', 'Tela Ultra HD com acesso ilimi
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Netflix Premium 4K');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'Xbox Game Pass Ultimate', 29.90, 'Games', 'Centenas de jogos no seu PC ou Console.', 'https://images.unsplash.com/photo-1605901309584-818e25960a8f?w=500&q=80'
+SELECT 'Xbox Game Pass Ultimate', 29.90, 'Acessórios', 'Centenas de jogos no seu PC ou Console.', 'https://images.unsplash.com/photo-1605901309584-818e25960a8f?w=500&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Xbox Game Pass Ultimate');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
@@ -95,7 +96,7 @@ SELECT 'Disney+ & Star+', 19.90, 'Streaming', 'O combo perfeito para a família.
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Disney+ & Star+');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'PlayStation Plus Deluxe', 35.00, 'Games', 'Catálogo de clássicos e jogos mensais.', 'https://images.unsplash.com/photo-1500995617113-cf789362a3e1?w=500&q=80'
+SELECT 'PlayStation Plus Deluxe', 35.00, 'Acessórios', 'Catálogo de clássicos e jogos mensais.', 'https://images.unsplash.com/photo-1500995617113-cf789362a3e1?w=500&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'PlayStation Plus Deluxe');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
@@ -105,6 +106,31 @@ WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Crunchyroll Premiu
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
 SELECT 'Youtube Premium 1 Mês', 15.00, 'Streaming', 'Músicas e vídeos sem anúncios em segundo plano.', 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Youtube Premium 1 Mês');
+
+-- NOVOS PRODUTOS PARA A CATEGORIA LOJA
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'TV Box MXQ Pro 4K', 189.90, 'Loja', 'Transforme sua TV em Smart com Android atualizado.', 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'TV Box MXQ Pro 4K');
+
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'Controle Remoto TV Box', 25.00, 'Loja', 'Controle universal compatível com diversos modelos.', 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Controle Remoto TV Box');
+
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'Carregador Turbo 20W USB-C', 45.00, 'Loja', 'Carregamento rápido para iPhone e Android.', 'https://images.unsplash.com/photo-1619130709230-03879a953e5e?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Carregador Turbo 20W USB-C');
+
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'Mouse Óptico Sem Fio', 35.00, 'Loja', 'Design ergonômico e conexão 2.4Ghz estável.', 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Mouse Óptico Sem Fio');
+
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'Cabo HDMI 2.0 Ultra HD', 19.90, 'Loja', 'Cabo de 1.5 metros com pontas banhadas a ouro.', 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Cabo HDMI 2.0 Ultra HD');
+
+INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
+SELECT 'Fone de Ouvido Bluetooth', 79.90, 'Loja', 'Alta fidelidade sonora e bateria de longa duração.', 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80'
+WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Fone de Ouvido Bluetooth');
 
 -- 6. ADICIONAR ALGUNS LOGINS PARA TESTE (Opcional)
 -- Adicionando estoque para Netflix
@@ -125,4 +151,14 @@ SELECT id, 'otaku_br@nime.com', 'naruto_shippuden' FROM public.produtos WHERE no
 
 -- 7. HABILITAR REALTIME
 -- Isso permite que o site "ouça" quando o pagamento for aprovado
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'pedidos'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
+    END IF;
+END $$;
