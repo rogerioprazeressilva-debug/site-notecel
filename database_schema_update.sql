@@ -80,11 +80,11 @@ ADD CONSTRAINT fk_login_pedido FOREIGN KEY (reserved_by_pedido_id) REFERENCES pu
 -- 5. INSERÇÃO DE DADOS INICIAIS (Para o site não ficar vazio)
 -- Usamos o WHERE NOT EXISTS para não duplicar se você rodar o script de novo
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'Netflix Premium 4K', 14.90, 'Streaming', 'Tela Ultra HD com acesso ilimitado.', 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&q=80'
+SELECT 'Netflix Premium 4K', 14.90, 'Streaming', 'Tela Ultra HD com acesso ilimitado.', 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=800&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Netflix Premium 4K');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'Xbox Game Pass Ultimate', 29.90, 'Acessórios', 'Centenas de jogos no seu PC ou Console.', 'https://images.unsplash.com/photo-1605901309584-818e25960a8f?w=500&q=80'
+SELECT 'Xbox Game Pass Ultimate', 29.90, 'Acessórios', 'Centenas de jogos no seu PC ou Console.', 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=800&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Xbox Game Pass Ultimate');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
@@ -96,7 +96,7 @@ SELECT 'Disney+ & Star+', 19.90, 'Streaming', 'O combo perfeito para a família.
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Disney+ & Star+');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'PlayStation Plus Deluxe', 35.00, 'Acessórios', 'Catálogo de clássicos e jogos mensais.', 'https://images.unsplash.com/photo-1500995617113-cf789362a3e1?w=500&q=80'
+SELECT 'PlayStation Plus Deluxe', 35.00, 'Acessórios', 'Catálogo de clássicos e jogos mensais.', 'https://images.unsplash.com/photo-1592155931584-901ac15763e3?w=800&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'PlayStation Plus Deluxe');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
@@ -109,7 +109,7 @@ WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Youtube Premium 1 
 
 -- NOVOS PRODUTOS PARA A CATEGORIA LOJA
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)
-SELECT 'TV Box MXQ Pro 4K', 189.90, 'Loja', 'Transforme sua TV em Smart com Android atualizado.', 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&q=80'
+SELECT 'TV Box MXQ Pro 4K', 189.90, 'Loja', 'Transforme sua TV em Smart com Android atualizado.', 'https://images.unsplash.com/photo-1595935736128-db1f0a261263?w=800&q=80'
 WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'TV Box MXQ Pro 4K');
 
 INSERT INTO public.produtos (nome, preco, categoria, descricao, imagem_url)

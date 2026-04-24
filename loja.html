@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Completo | NOTECEL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23b91c1c%22/><text y=%22.75em%22 x=%2250%%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22900%22 font-size=%2270%22 fill=%22white%22>N</text></svg>">
+    <link rel="stylesheet" href="./output.css?v=1.0.1">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <nav class="glass sticky top-0 z-[100] border-b border-white/20 shadow-sm">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-slate-900 font-black text-2xl tracking-tighter flex items-center gap-2">
+                <span class="bg-red-700 text-white px-2 py-0.5 rounded-lg shadow-sm">N</span>
+                NOTECEL
+            </a>
+
+            <div class="hidden md:flex items-center gap-6 text-[12px] font-bold uppercase tracking-widest text-slate-600">
+                <a href="index.html" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Início</a>
+                <a href="javascript:void(0)" onclick="scrollToGrid('Streaming')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Streaming</a>
+                <a href="javascript:void(0)" onclick="scrollToGrid('Acessórios')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Acessórios</a>
+                <a href="javascript:void(0)" onclick="scrollToGrid('Loja')" class="nav-link border-b-2 border-transparent py-1 hover:text-red-700 transition-all">Loja</a>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button onclick="toggleCart()" class="relative bg-slate-900 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-lg transition-all">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full border-2 border-white shadow-md">0</span>
+                </button>
+                
+                <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="md:hidden text-2xl text-slate-800 transition-transform active:scale-90">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="bg-slate-900 py-16 px-6">
+        <div class="max-w-7xl mx-auto text-center">
+            <h1 class="text-4xl font-black text-white uppercase tracking-tighter">Nosso Catálogo</h1>
+            <p class="text-slate-400 mt-2">Encontre os melhores produtos com entrega imediata.</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto py-12 px-4">
+        <!-- Filtros Rápidos na Loja -->
+        <div class="flex flex-wrap gap-4 mb-12 justify-center">
+            <button onclick="filtrar('todos')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Todos</button>
+            <button onclick="filtrar('Streaming')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Streaming</button>
+            <button onclick="filtrar('Acessórios')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Acessórios</button>
+            <button onclick="filtrar('Loja')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Loja</button>
+        </div>
+
+        <div id="product-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
+            <!-- Produtos carregados via JS -->
+        </div>
+    </main>
+
+    <!-- Mesmas estruturas de suporte (Carrinho e Modais) -->
+    <div id="cartOverlay" onclick="toggleCart()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
+    
+    <!-- Overlay do Menu Mobile -->
+    <div id="menuOverlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
+
+    <!-- Sidebar Menu Mobile (Lado Esquerdo) -->
+    <div id="mobileMenu" class="fixed top-0 left-0 w-full max-w-[280px] h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 -translate-x-full">
+        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
+            <h2 class="font-bold text-xl tracking-tight">Menu Notecel</h2>
+            <button onclick="toggleMobileMenu()" class="text-2xl text-slate-400 hover:text-white transition-colors">&times;</button>
+        </div>
+        <div class="flex flex-col p-4 gap-2 text-sm font-bold uppercase tracking-widest text-slate-600">
+            <a href="index.html" class="p-4 rounded-xl hover:bg-slate-50 transition-colors">Início</a>
+            <a href="loja.html?cat=Streaming" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Streaming</a>
+            <a href="loja.html?cat=Acessórios" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Acessórios</a>
+            <a href="loja.html?cat=Loja" class="nav-link-mobile p-4 rounded-xl hover:bg-slate-50 transition-colors">Loja</a>
+            <a href="https://wa.me/5591985156039" target="_blank" class="p-4 rounded-xl hover:bg-slate-50 transition-colors text-red-700">Suporte WhatsApp</a>
+        </div>
+    </div>
+
+    <div id="cartSidebar" class="cart-sidebar fixed top-0 right-0 w-full max-w-sm h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 translate-x-full">
+        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
+            <h2 class="font-bold text-xl">Meu Carrinho</h2>
+            <button onclick="toggleCart()" class="text-2xl text-slate-400 hover:text-white">&times;</button>
+        </div>
+        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+        <div class="p-6 border-t bg-slate-50">
+            <div class="flex justify-between items-center mb-4 text-xl font-black">
+                <span>Total:</span>
+                <span id="cart-total" class="text-red-700">R$ 0,00</span>
+            </div>
+            <button onclick="openCheckoutModal()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition">Finalizar Pagamento PIX</button>
+        </div>
+    </div>
+
+    <div id="checkoutModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-8 shadow-2xl text-center relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-red-700"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            <div id="loader" class="py-12"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-700 mx-auto"></div></div>
+            <div id="checkoutFields" class="hidden">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">Confirmar Pedido</h2>
+                <input type="text" id="whatsappInput" placeholder="WhatsApp (DDD+Número)" class="w-full pl-4 pr-4 py-3 rounded-xl border mb-6">
+                <button onclick="checkout()" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg mb-4">Gerar PIX</button>
+            </div>
+            <div id="pixData" class="hidden">
+                <div id="qrcode" class="mb-6"></div>
+                <button id="btnCopy" class="w-full bg-yellow-400 text-red-900 font-bold py-3 rounded-xl">Copiar Código PIX</button>
+            </div>
+            <div id="successState" class="hidden">
+                <i class="fa-solid fa-circle-check text-6xl text-green-500 mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Sucesso!</h2>
+                <button onclick="closeModal()" class="w-full bg-slate-900 text-white py-4 rounded-xl">Voltar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Autenticação -->
+    <div id="authModal" class="hidden fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[150] p-4">
+        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400">&times;</button>
+            <div class="flex border-b mb-8">
+                <button id="tabLogin" onclick="setAuthMode(false)" class="flex-1 pb-4 font-bold border-b-2 border-red-700 text-red-700 uppercase text-xs">Login</button>
+                <button id="tabRegister" onclick="setAuthMode(true)" class="flex-1 pb-4 font-bold border-b-2 border-transparent text-slate-400 uppercase text-xs">Cadastro</button>
+            </div>
+            <form onsubmit="handleAuth(event)" class="space-y-4">
+                <div id="registerFields" class="hidden space-y-4"><input type="text" id="regNome" placeholder="Nome" class="w-full px-4 py-3 rounded-xl border"></div>
+                <input type="email" id="authEmail" placeholder="E-mail" class="w-full px-4 py-3 rounded-xl border">
+                <input type="password" id="authPass" placeholder="Senha" class="w-full px-4 py-3 rounded-xl border">
+                <button type="submit" id="authSubmitBtn" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg">Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="./script.js?v=1.0.1" defer></script>
+</body>
+</html>

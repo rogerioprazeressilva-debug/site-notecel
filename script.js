@@ -23,10 +23,23 @@ function formatarMoeda(valor) {
 
 // --- FUNÇÕES DE NAVEGAÇÃO E FILTRO ---
 
+// Helper para pegar parâmetros da URL (ex: ?cat=Loja)
+function getQueryParam(name) {
+    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+    return results ? decodeURIComponent(results[1]) : null;
+}
+
 // Helper para rolar até a vitrine e filtrar automaticamente
 function scrollToGrid(categoria) {
-    filtrar(categoria);
-    document.getElementById('product-grid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Se não estiver na página da loja, redireciona
+    var path = window.location.pathname;
+    if (path.indexOf('loja') === -1) {
+        window.location.href = 'loja.html?cat=' + categoria;
+    } else {
+        filtrar(categoria);
+        var grid = document.getElementById('product-grid');
+        if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 function filtrar(categoria) {
@@ -107,8 +120,13 @@ function exibirProdutos(categoria) {
                        (categoria === 'Acessórios' && linkText === 'Acessórios') ||
                        (categoria === 'Loja' && linkText === 'Loja');
 
-        if(ehAtivo) links[k].className = 'nav-link text-red-700 border-b-2 border-red-700 transition-colors';
-        else links[k].className = 'nav-link hover:text-red-700 transition-colors';
+        if (ehAtivo) {
+            links[k].classList.add('text-red-700', 'border-red-700');
+            links[k].classList.remove('border-transparent');
+        } else {
+            links[k].classList.remove('text-red-700', 'border-red-700');
+            links[k].classList.add('border-transparent');
+        }
     }
 
     // Atualiza links mobile de forma sincronizada
@@ -573,7 +591,17 @@ window.onload = function() {
         });
     }
 
-    filtrar('todos');
+    // Lógica de inicialização inteligente baseada na página
+    var catParam = getQueryParam('cat');
+    var path = window.location.pathname;
+    var isShopPage = path.indexOf('loja') !== -1;
+
+    if (isShopPage) {
+        filtrar(catParam || 'todos');
+    } else if (document.getElementById('product-grid')) {
+        filtrar('todos');
+    }
+
     updateCartUI();
     updateUserUI();
     initScrollReveal();
