@@ -8,23 +8,34 @@ body {
 
 /* --- AJUSTE CRÍTICO DO CARRINHO --- */
 .cart-sidebar { 
-    position: fixed;
+    position: fixed !important;
     top: 0;
     right: 0; /* Começa na direita */
     width: 350px;
     height: 100%;
-    background: white;
+    background: #ffffff;
     z-index: 9999;
     box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
     will-change: transform;
-    /* O segredo: ele começa 100% para fora da tela na direita */
-    transform: translateX(100%); 
+    transform: translateX(100%);
+    visibility: hidden;
+    pointer-events: none;
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Quando esta classe for adicionada via JS, ele volta para a tela */
+@media (max-width: 480px) {
+    .cart-sidebar {
+        width: 100%; /* Ocupa tela cheia no celular */
+        transform: translateX(100%);
+    }
+}
+
 .cart-sidebar.open { 
-    transform: translateX(0) !important;
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
 }
 
 /* Overlay do Carrinho */
@@ -61,6 +72,11 @@ body {
 .product-card {
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
+@media (max-width: 768px) {
+    .product-card { padding: 1rem; border-radius: 1.5rem; }
+    .product-card img { height: 120px; }
+}
 .product-card:hover { transform: translateY(-8px); }
 
 @keyframes pulse-soft {
@@ -95,4 +111,17 @@ body {
 button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+}
+
+#history-list::-webkit-scrollbar { width: 4px; }
+#history-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+.transition-active:active { transform: scale(0.95); }
+
+/* Animação do Toast */
+.toast-show { transform: scale(1) !important; opacity: 1 !important; }
+
+#toastContainer { 
+    transition: background 0.3s ease; 
+    z-index: 99999 !important; /* Garante que fique acima de modais (150) e sidebar (9999) */
 }

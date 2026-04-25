@@ -155,12 +155,40 @@ SELECT id, 'otaku_br@nime.com', 'naruto_shippuden' FROM public.produtos WHERE no
 -- Isso permite que o site "ouça" quando o pagamento for aprovado
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables
-        WHERE pubname = 'supabase_realtime'
-        AND schemaname = 'public'
-        AND tablename = 'pedidos'
-    ) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pedidos') THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
     END IF;
 END $$;
+;
+
+-- 8. TABELA DE APLICATIVOS
+CREATE TABLE IF NOT EXISTS public.aplicativos (
+    id SERIAL PRIMARY KEY,
+    nome TEXT NOT NULL,
+    descricao TEXT,
+    icone_url TEXT,
+    download_url TEXT NOT NULL,
+    plataforma TEXT DEFAULT 'Android',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.aplicativos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Leitura pública para aplicativos" ON public.aplicativos;
+CREATE POLICY "Leitura pública para aplicativos" ON public.aplicativos FOR SELECT TO anon, authenticated USING (true);
+
+-- Garantir que as roles da API tenham acesso à tabela e à sequência de IDs
+GRANT ALL ON TABLE public.aplicativos TO postgres, anon, authenticated, service_role;
+GRANT ALL ON SEQUENCE public.aplicativos_id_seq TO postgres, anon, authenticated, service_role;
+
+-- Forçar atualização do cache do PostgREST (API)
+NOTIFY pgrst, 'reload schema';
+
+-- Dados iniciais para aplicativos
+INSERT INTO public.aplicativos (nome, descricao, icone_url, download_url, plataforma)
+SELECT 'IPTV Smarters Pro', 'Melhor player para listas IPTV com interface moderna.', 'https://play-lh.googleusercontent.com/1-h9mZp-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://www.iptvsmarters.com/smarters.apk', 'Android'
+WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'IPTV Smarters Pro');
+
+INSERT INTO public.aplicativos (nome, descricao, icone_url, download_url, plataforma)
+SELECT 'XCIPTV Player', 'Excelente alternativa para reprodução de conteúdo.', 'https://play-lh.googleusercontent.com/9v_mX_X-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://apkpure.com/xciptv-player/com.nathnetwork.xciptv', 'Multiplataforma'
+WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'XCIPTV Player');

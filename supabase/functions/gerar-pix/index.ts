@@ -34,6 +34,8 @@ serve(async (req) => {
       userId = user?.id;
     }
 
+    if (!userId) throw new Error("Autenticação necessária: Faça login para gerar o pagamento.");
+
     // 1. Criar pagamento no Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
@@ -69,11 +71,13 @@ serve(async (req) => {
     if (!firstProductId) throw new Error("Nenhum produto no carrinho para reservar login.");
 
     // 2. Verificar se o produto é digital ou físico (Loja)
-    const { data: product } = await supabase
+    const { data: product, error: productError } = await supabase
       .from('produtos')
       .select('categoria, quantidade')
       .eq('id', firstProductId)
       .single();
+
+    if (productError || !product) throw new Error("Produto não encontrado no catálogo.");
 
     let loginId = null;
 

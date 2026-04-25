@@ -6,6 +6,7 @@
     <title>NOTECEL S.D | Contas Premium & Logins</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23b91c1c'/><text y='.75em' x='50%' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='70' fill='white'>N</text></svg>">
+    <link rel="stylesheet" href="style.css?v=1.0.2">
     <link rel="stylesheet" href="./output.css?v=1.0.1">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -16,10 +17,44 @@
         @keyframes bounce-short { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .animate-bounce-short { animation: bounce-short 2s ease-in-out infinite; }
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
-        #cartSidebar.open { transform: translateX(0) !important; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
+
+    <!-- ESTRUTURAS DE SUPORTE (MOVIDAS PARA O TOPO DO BODY PARA EVITAR CONFLITOS) -->
+    <div id="menuOverlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
+    <div id="cartOverlay" onclick="toggleCart()"></div>
+
+    <!-- Sidebar Carrinho -->
+    <div id="cartSidebar" class="cart-sidebar">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h2 class="font-bold">Meu Carrinho</h2>
+            <button onclick="toggleCart()" class="text-2xl">&times;</button>
+        </div>
+        <div id="cart-items" class="flex-1 overflow-y-auto p-6">
+            <p class="text-center text-slate-400 mt-10 uppercase text-[10px] tracking-widest font-bold">Seu carrinho está vazio.</p>
+        </div>
+        <div class="p-6 border-t">
+            <div class="flex justify-between mb-4 font-bold">
+                <span>Total:</span>
+                <span id="cart-total" class="text-red-700">R$ 0,00</span>
+            </div>
+            <button onclick="openCheckoutModal()" class="w-full bg-red-700 text-white py-4 rounded-xl font-bold">Finalizar Pedido</button>
+        </div>
+    </div>
+
+    <!-- Menu Mobile -->
+    <div id="mobileMenu" class="fixed top-0 left-0 w-full max-w-[280px] h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 -translate-x-full">
+        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
+            <h2 class="font-bold text-xl">Menu Notecel</h2>
+            <button onclick="toggleMobileMenu()" class="text-2xl">&times;</button>
+        </div>
+        <div class="flex flex-col p-4 gap-2 font-bold uppercase text-slate-600">
+            <a href="javascript:void(0)" onclick="scrollToGrid('todos'); toggleMobileMenu()" class="p-4 hover:bg-slate-50 rounded-xl">Início</a>
+            <a href="javascript:void(0)" onclick="scrollToGrid('Streaming'); toggleMobileMenu()" class="p-4 hover:bg-slate-50 rounded-xl">Streaming</a>
+            <a href="https://wa.me/5591985156039" target="_blank" class="p-4 text-red-700">Suporte</a>
+        </div>
+    </div>
 
     <nav class="glass sticky top-0 z-[100] border-b border-white/20 shadow-sm">
         <div class="bg-black/20 py-1 px-4 text-[10px] flex justify-between items-center opacity-80">
@@ -38,6 +73,7 @@
                 <a href="javascript:void(0)" onclick="scrollToGrid('Streaming')" class="hover:text-red-700 transition-all">Streaming</a>
                 <a href="javascript:void(0)" onclick="scrollToGrid('Acessórios')" class="hover:text-red-700 transition-all">Acessórios</a>
                 <a href="javascript:void(0)" onclick="scrollToGrid('Loja')" class="hover:text-red-700 transition-all">Loja</a>
+                <a href="aplicativos.html" class="hover:text-red-700 transition-all">Aplicativos</a>
             </div>
 
             <div class="flex items-center gap-4">
@@ -46,6 +82,7 @@
                         <i class="fa-regular fa-circle-user text-xl"></i>
                         <span id="userNameDisplay" class="hidden md:inline">Entrar</span>
                     </button>
+                    <button id="historyBtn" onclick="openHistoryModal()" class="hidden text-slate-600 hover:text-red-700" title="Meus Pedidos"><i class="fa-solid fa-clock-rotate-left text-lg"></i></button>
                     <button id="logoutBtn" onclick="logout()" class="hidden text-slate-400 hover:text-red-600" title="Sair"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
                 </div>
 
@@ -92,41 +129,10 @@
     </section>
 
     <main class="container mx-auto py-12 px-4">
-        <div id="product-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8"></div>
+        <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8"></div>
     </main>
 
-    <div id="menuOverlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
-    <div id="cartOverlay" onclick="toggleCart()" class="fixed inset-0 bg-black/50 z-[9998] hidden"></div>
-
-    <div id="mobileMenu" class="fixed top-0 left-0 w-full max-w-[280px] h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 -translate-x-full">
-        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
-            <h2 class="font-bold text-xl">Menu Notecel</h2>
-            <button onclick="toggleMobileMenu()" class="text-2xl">&times;</button>
-        </div>
-        <div class="flex flex-col p-4 gap-2 font-bold uppercase text-slate-600">
-            <a href="javascript:void(0)" onclick="scrollToGrid('todos'); toggleMobileMenu()" class="p-4 hover:bg-slate-50 rounded-xl">Início</a>
-            <a href="javascript:void(0)" onclick="scrollToGrid('Streaming'); toggleMobileMenu()" class="p-4 hover:bg-slate-50 rounded-xl">Streaming</a>
-            <a href="https://wa.me/5591985156039" target="_blank" class="p-4 text-red-700">Suporte</a>
-        </div>
-    </div>
-
-    <div id="cartSidebar" class="fixed top-0 right-0 w-[350px] h-full bg-white z-[9999] shadow-2xl transition-all duration-300 flex flex-col translate-x-full">
-        <div class="p-6 border-b flex justify-between items-center">
-            <h2 class="font-bold">Meu Carrinho</h2>
-            <button onclick="toggleCart()" class="text-2xl">&times;</button>
-        </div>
-        <div id="cart-items" class="flex-1 overflow-y-auto p-6">
-            <p class="text-center text-slate-400 mt-10 uppercase text-[10px] tracking-widest font-bold">Seu carrinho está vazio.</p>
-        </div>
-        <div class="p-6 border-t">
-            <div class="flex justify-between mb-4 font-bold">
-                <span>Total:</span>
-                <span id="cart-total" class="text-red-700">R$ 0,00</span>
-            </div>
-            <button onclick="openCheckoutModal()" class="w-full bg-red-700 text-white py-4 rounded-xl font-bold">Finalizar Pedido</button>
-        </div>
-    </div>
-
+    <!-- Modais -->
     <div id="authModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
         <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl relative">
             <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-red-700 text-2xl">&times;</button>
@@ -143,6 +149,17 @@
                 <input type="password" id="authPass" placeholder="Senha" required class="w-full p-3 rounded-xl border border-slate-200 outline-none">
                 <button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-red-700">Confirmar</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal de Histórico -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+        <div class="bg-white rounded-[2rem] max-w-md w-full p-8 shadow-2xl relative flex flex-col max-h-[80vh]">
+            <button onclick="closeHistoryModal()" class="absolute top-4 right-4 text-slate-400 hover:text-red-700 text-2xl">&times;</button>
+            <h2 class="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tighter italic">Meus Pedidos</h2>
+            <div id="history-list" class="flex-1 overflow-y-auto pr-2">
+                <!-- Histórico carregado via JS -->
+            </div>
         </div>
     </div>
 
@@ -178,11 +195,23 @@
         </div>
     </div>
 
-    <button onclick="toggleCart()" class="md:hidden fixed bottom-6 right-6 z-[90] bg-red-700 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center animate-bounce-short">
+    <!-- Sistema de Notificações Profissional (Toast) -->
+    <div id="toastContainer" class="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none hidden">
+        <div id="toastBox" class="bg-slate-900/95 backdrop-blur-xl p-8 rounded-[2rem] shadow-2xl border border-white/10 transform transition-all duration-300 scale-90 opacity-0 max-w-sm w-full text-center pointer-events-auto">
+            <div id="toastIcon" class="mb-4">
+                <i class="fa-solid fa-circle-info text-4xl text-red-700"></i>
+            </div>
+            <h3 id="toastTitle" class="text-xl font-black text-white uppercase italic mb-2">Aviso</h3>
+            <p id="toastMessage" class="text-white font-medium leading-relaxed"></p>
+            <button onclick="closeToast()" class="mt-6 w-full bg-red-700 text-white py-3 rounded-xl font-bold active:scale-95 transition-transform">Entendi</button>
+        </div>
+    </div>
+
+    <button onclick="toggleCart()" class="md:hidden fixed top-24 right-4 z-[90] bg-red-700 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center animate-bounce-short">
         <i class="fa-solid fa-cart-shopping text-xl"></i>
         <span class="cart-count-badge absolute -top-1 -right-1 bg-slate-900 text-[10px] px-2 py-1 rounded-full border-2 border-white">0</span>
     </button>
 
-    <script src="script.js?v=1.1.2"></script>
+    <script src="script.js?v=1.1.3"></script>
 </body>
 </html>

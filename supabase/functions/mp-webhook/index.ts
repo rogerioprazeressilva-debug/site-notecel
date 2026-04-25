@@ -35,7 +35,7 @@ serve(async (req) => {
 
         // BUSCA O PEDIDO com os dados do login/produto para processar
         const { data: pedido, error: errorBusca } = await supabase.from('pedidos')
-          .select('id, login_id, produto_id, status, customer_whatsapp, produtos(categoria, quantidade)')
+          .select('id, login_id, produto_id, status, customer_whatsapp, produtos(nome, categoria, quantidade)')
           .eq('pix_id', String(paymentId))
           .single();
 
@@ -51,7 +51,7 @@ serve(async (req) => {
           if (pedido.login_id) {
             await supabase.from('logins_disponiveis').update({ 
               status: 'vendido', 
-              sold_at: new Date().toISOString() 
+              sold_at: new Date().toISOString()
             }).eq('id', pedido.login_id);
           }
           
