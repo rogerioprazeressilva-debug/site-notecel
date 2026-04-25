@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { valor, email, customer_whatsapp, cartItems } = body
+    const { valor, descricao, email, customer_whatsapp, cartItems } = body
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')
 
     // Validação extra para garantir que o ambiente está configurado
@@ -43,13 +43,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         transaction_amount: parseFloat(Number(valor).toFixed(2)),
-        description: `Pedido Notecell - ${customer_whatsapp}`,
+        description: descricao,
         payment_method_id: 'pix',
-        payer: { 
-          email: email || 'cliente@email.com',
-          first_name: 'Cliente',
-          last_name: 'Notecel'
-        }
+        payer: { email: email }
       })
     })
 

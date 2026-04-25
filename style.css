@@ -3,41 +3,56 @@
 body {
     font-family: 'Inter', sans-serif;
     scroll-behavior: smooth;
+    overflow-x: hidden; /* Evita que a sidebar crie barra de rolagem lateral ao estar escondida */
 }
 
+/* --- AJUSTE CRÍTICO DO CARRINHO --- */
 .cart-sidebar { 
     position: fixed;
+    top: 0;
+    right: 0; /* Começa na direita */
+    width: 350px;
+    height: 100%;
+    background: white;
+    z-index: 9999;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
     will-change: transform;
+    /* O segredo: ele começa 100% para fora da tela na direita */
+    transform: translateX(100%); 
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.translate-x-0 { 
+/* Quando esta classe for adicionada via JS, ele volta para a tela */
+.cart-sidebar.open { 
     transform: translateX(0) !important;
 }
 
-/* Overlay do Carrinho - Garante visibilidade e transição */
+/* Overlay do Carrinho */
 #cartOverlay {
-    display: block; 
-    opacity: 1; 
-    pointer-events: auto; 
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    z-index: 9998;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    transition: opacity 0.3s ease-in-out; 
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
 }
 
-#cartOverlay.hidden { 
-    display: none !important; 
-    opacity: 0; 
-    pointer-events: none; 
+/* Quando o overlay estiver ativo */
+#cartOverlay.active { 
+    opacity: 1; 
+    pointer-events: auto; 
 }
 
+/* --- RESTANTE DOS ESTILOS --- */
 .glass {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -46,18 +61,13 @@ body {
 .product-card {
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.product-card:hover {
-    transform: translateY(-8px);
-}
+.product-card:hover { transform: translateY(-8px); }
 
 @keyframes pulse-soft {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.8; transform: scale(0.98); }
 }
-
-.animate-pulse-soft {
-    animation: pulse-soft 3s infinite ease-in-out;
-}
+.animate-pulse-soft { animation: pulse-soft 3s infinite ease-in-out; }
 
 @keyframes bounce-short {
     0%, 100% { transform: translateY(0); }
@@ -65,7 +75,6 @@ body {
 }
 .animate-bounce-short { animation: bounce-short 0.6s ease-out; }
 
-/* Efeito de adição ao carrinho */
 @keyframes cart-bump {
     0% { transform: scale(1); }
     50% { transform: scale(1.2); }
@@ -73,7 +82,6 @@ body {
 }
 .cart-bump { animation: cart-bump 0.4s ease-out; }
 
-/* Revelação ao Scroll */
 .reveal { 
     opacity: 0; 
     transform: translateY(30px); 

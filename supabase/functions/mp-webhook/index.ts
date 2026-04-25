@@ -11,44 +11,65 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
+    console.log("Recebido do Mercado Pago:", JSON.stringify(body));
+
+    // Captura o ID de forma mais resiliente
+    const paymentId = body.data?.id || (body.resource ? body.resource.split('/').pop() : null);
     
-    if (body.type === "payment" || body.action?.includes("payment")) {
-      const paymentId = body.data?.id || body.resource?.split('/').pop();
-      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    if (paymentId && (body.type === "payment" || body.action?.includes("payment"))) {
+      const accessToken = Deno.env.get('MP_ACCESS_TOKEN') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
+      
       const paymentData = await mpResponse.json();
+      console.log(`Status do pagamento ${paymentId}: ${paymentData.status}`);
 
       if (paymentData.status === 'approved') {
-        const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!, 
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
 
-        // Busca o pedido e o login associado
-        const { data: pedido } = await supabase.from('pedidos')
-          .select('id, login_id, customer_whatsapp, logins_disponiveis(username, password)')
-          .eq('pix_id', String(paymentId)).single();
+        // BUSCA O PEDIDO (Adicionei 'status' no select)
+        const { data: pedido, error: errorBusca } = await supabase.from('pedidos')
+          .select('id, login_id, status, customer_whatsapp, logins_disponiveis(username, password)')
+          .eq('pix_id', String(paymentId))
+          .single();
 
-        if (pedido && pedido.status !== 'PAGO' && pedido.logins_disponiveis) {
-          const login = Array.isArray(pedido.logins_disponiveis) 
-            ? pedido.logins_disponiveis[0] 
-            : pedido.logins_disponiveis;
+        if (errorBusca) {
+          console.error("Pedido não encontrado no banco para o pix_id:", paymentId);
+        }
 
-          // Atualiza status do pedido e do login
+        if (pedido && pedido.status === 'PENDENTE') {
+          // 1. Atualiza o pedido para PAGO
           await supabase.from('pedidos').update({ status: 'PAGO' }).eq('id', pedido.id);
-          await supabase.from('logins_disponiveis').update({ status: 'vendido', sold_at: new Date() }).eq('id', pedido.login_id);
+          
+          // 2. Se houver um login vinculado, marca como vendido
+          if (pedido.login_id) {
+            await supabase.from('logins_disponiveis').update({ 
+              status: 'vendido', 
+              sold_at: new Date().toISOString() 
+            }).eq('id', pedido.login_id);
+          }
 
-          // API de WhatsApp removida conforme solicitado.
-          // O cliente pode visualizar as credenciais na página "Meus Pedidos" 
-          // ou você pode enviar manualmente ao ver o status PAGO no painel.
-          console.log(`✅ Pagamento aprovado para o WhatsApp: ${pedido.customer_whatsapp}. Enviar login manualmente ou via sistema.`);
+          console.log(`✅ Sucesso! Pedido ${pedido.id} processado.`);
+        } else {
+          console.log(`ℹ️ Ignorado: Pedido já processado ou inexistente.`);
         }
       }
     }
-    return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    
+    return new Response(JSON.stringify({ received: true }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
 
   } catch (error) {
-    console.error("❌ Erro na função send-whatsapp-credentials:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error("❌ Erro no processamento:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
   }
 });
