@@ -200,18 +200,12 @@ function filtrar(categoria) {
 }
 
 /**
- * 6. CHECKOUT E PIX
+ * 6. CHECKOUT E PIX (REVISADO PARA CORRIGIR MODAL VAZIO)
  */
-function mostrarCamposCheckout() {
-    document.getElementById('loader')?.classList.add('hidden');
-    document.getElementById('pixData')?.classList.add('hidden');
-    document.getElementById('successState')?.classList.add('hidden');
-    document.getElementById('checkoutFields')?.classList.remove('hidden');
-}
-
 async function openCheckoutModal() {
     if (carrinho.length === 0) return alert("Seu carrinho está vazio!");
     
+    // Verifica sessão
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
         alert("Por favor, entre na sua conta para finalizar o pedido.");
@@ -219,21 +213,26 @@ async function openCheckoutModal() {
         return;
     }
 
-    document.getElementById('checkoutModal')?.classList.remove('hidden');
-    mostrarCamposCheckout();
+    // Prepara interface do modal
+    const modal = document.getElementById('checkoutModal');
+    const loader = document.getElementById('loader');
+    const pixData = document.getElementById('pixData');
+    const fields = document.getElementById('checkoutFields');
+    const success = document.getElementById('successState');
+
+    modal?.classList.remove('hidden');
+    loader?.classList.remove('hidden');
+    pixData?.classList.add('hidden');
+    fields?.classList.add('hidden'); // Ocultamos inputs manuais
+    success?.classList.add('hidden');
+
+    // Dispara a geração automática usando dados do perfil do usuário
+    const whatsapp = session.user.user_metadata.whatsapp || "11999999999"; 
+    await executarCheckoutAutomatico(whatsapp, session);
 }
 
-async function checkout() {
-    const whatsapp = document.getElementById('whatsappInput')?.value;
-    if (!whatsapp || whatsapp.length < 10) return alert("WhatsApp inválido. Use DDD + Número.");
-
-    document.getElementById('checkoutFields').classList.add('hidden');
-    document.getElementById('loader').classList.remove('hidden');
-
+async function executarCheckoutAutomatico(whatsapp, session) {
     try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) throw new Error("Sessão expirada. Faça login novamente.");
-
         const total = carrinho.reduce((acc, item) => acc + item.preco, 0);
 
         const response = await fetch(`${SUPABASE_URL}/functions/v1/gerar-pix`, {
@@ -245,7 +244,7 @@ async function checkout() {
             },
             body: JSON.stringify({
                 valor: total,
-                descricao: `Pedido Notecell`,
+                descricao: `Pedido Notecell - ${session.user.email}`,
                 customer_whatsapp: whatsapp,
                 cartItems: carrinho,
                 email: session.user.email
@@ -258,14 +257,14 @@ async function checkout() {
         exibirPix(result.qr_code, result.qr_code_base64, result.id_pagamento);
     } catch (error) {
         console.error("Erro no checkout:", error);
-        alert("Erro: " + error.message);
-        mostrarCamposCheckout(); 
+        alert("Erro ao processar pedido: " + error.message);
+        closeModal(); 
     }
 }
 
 function exibirPix(codigo, base64, idPagamento) {
-    document.getElementById('loader').classList.add('hidden');
-    document.getElementById('pixData').classList.remove('hidden');
+    document.getElementById('loader')?.classList.add('hidden');
+    document.getElementById('pixData')?.classList.remove('hidden');
     
     const qrcodeContainer = document.getElementById('qrcode');
     if (qrcodeContainer && base64) {
@@ -286,7 +285,7 @@ function exibirPix(codigo, base64, idPagamento) {
     const btnZapPix = document.getElementById('btnZapPix');
     if (btnZapPix) {
         btnZapPix.onclick = () => {
-            const msg = `Olá! Segue o código PIX para o meu pedido na Notecell:\n\n${codigo}`;
+            const msg = `Segue o código PIX do meu pedido na Notecell:\n\n${codigo}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
         };
     }
@@ -337,20 +336,21 @@ function togglePasswordVisibility() {
  * 7. INICIALIZAÇÃO
  */
 window.onload = async () => {
-    // SEGURANÇA: Garante que o carrinho e overlay iniciem fechados
+    // UI Cleanup
     const sidebar = document.getElementById('cartSidebar');
     const overlay = document.getElementById('cartOverlay');
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('active');
 
-    // Carrega dados silenciosamente
     await carregarDados();
     atualizarCarrinho();
 
-    // Sincroniza usuário se logado
+    // Estado do usuário
     const { data: { user } } = await supabaseClient.auth.getUser();
-    if (user && document.getElementById('userNameDisplay')) {
-        document.getElementById('userNameDisplay').innerText = user.user_metadata.full_name || user.email;
+    if (user) {
+        const display = document.getElementById('userNameDisplay');
+        if (display) display.innerText = user.user_metadata.full_name || user.email;
+        document.getElementById('logoutBtn')?.classList.remove('hidden');
     }
 };
 
