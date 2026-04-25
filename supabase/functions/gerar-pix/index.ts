@@ -13,6 +13,10 @@ serve(async (req) => {
     const body = await req.json()
     const { valor, descricao, email, customer_whatsapp, cartItems } = body
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')
+
+    if (!accessToken) {
+      throw new Error("Configuração ausente: MERCADO_PAGO_ACCESS_TOKEN não definido nas Secrets do Supabase.")
+    }
     
     // 0. Identificar Usuário via JWT (Segurança)
     const supabase = createClient(
