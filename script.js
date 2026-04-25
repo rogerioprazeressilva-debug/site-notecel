@@ -269,11 +269,19 @@ async function executarCheckoutAutomatico(whatsapp, session) {
         if (result.error) throw new Error(result.error);
 
         exibirPix(result.qr_code, result.qr_code_base64, result.id_pagamento);
-    } catch (error) {
-        console.error("Erro no checkout:", error);
+    // Localize esse trecho no seu catch(error) dentro de executarCheckoutAutomatico
+} catch (error) {
+    console.error("Erro no checkout:", error);
+    
+    // Se o erro for de estoque esgotado, avise o usuário de forma clara
+    if (error.message.includes("Estoque esgotado")) {
+        alert("Ops! Alguém acabou de comprar o último item de um dos produtos no seu carrinho. Vamos atualizar a página para você.");
+        location.reload(); // Recarrega para puxar o estoque atualizado
+    } else {
         alert("Erro ao processar pedido: " + error.message);
-        closeModal(); 
     }
+    closeModal(); 
+}
 }
 
 function exibirPix(codigo, base64, idPagamento) {
