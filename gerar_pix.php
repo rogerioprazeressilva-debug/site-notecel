@@ -3,11 +3,11 @@
 require_once 'vendor/autoload.php';
 
 // Configurações Mercado Pago
-MercadoPago\SDK::setAccessToken("APP_USR-891093961834605-041916-ada38ff19572111ded621ee4dc5005a3-399930128");
+MercadoPago\SDK::setAccessToken(getenv("MERCADO_PAGO_TOKEN"));
 
 // Configurações Supabase (Para integração com o banco)
 $supabaseUrl = "https://uaaslrletscnlqxctnee.supabase.co";
-$supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Njc3NzIyMywiZXhwIjoyMDkyMzUzMjIzfQ.KoJKKqesGmrfSCHosYvPj2t6AaZvcG4dQo5GqyDr8hU"; // Use a Service Role para permissões de escrita
+$supabaseKey = getenv("SUPABASE_SERVICE_ROLE_KEY"); // Use a Service Role para permissões de escrita
 
 $body = json_decode(file_get_contents('php://input'), true);
 $total = $body['total'] ?? 0;

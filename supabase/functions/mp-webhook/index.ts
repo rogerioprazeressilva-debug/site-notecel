@@ -29,18 +29,19 @@ serve(async (req) => {
           .select('id, login_id, customer_whatsapp, logins_disponiveis(username, password)')
           .eq('pix_id', String(paymentId)).single();
 
-        if (pedido && pedido.status !== 'PAGO') {
+        if (pedido && pedido.status !== 'PAGO' && pedido.logins_disponiveis) {
+          const login = Array.isArray(pedido.logins_disponiveis) 
+            ? pedido.logins_disponiveis[0] 
+            : pedido.logins_disponiveis;
+
           // Atualiza status do pedido e do login
           await supabase.from('pedidos').update({ status: 'PAGO' }).eq('id', pedido.id);
           await supabase.from('logins_disponiveis').update({ status: 'vendido', sold_at: new Date() }).eq('id', pedido.login_id);
 
-          // Envia WhatsApp (Exemplo usando uma API genérica)
-          const message = `Seu acesso chegou!\nUser: ${pedido.logins_disponiveis.username}\nSenha: ${pedido.logins_disponiveis.password}`;
-          await fetch(Deno.env.get('WHATSAPP_API_URL')!, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${Deno.env.get('WHATSAPP_API_TOKEN')}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: pedido.customer_whatsapp, message })
-          });
+          // API de WhatsApp removida conforme solicitado.
+          // O cliente pode visualizar as credenciais na página "Meus Pedidos" 
+          // ou você pode enviar manualmente ao ver o status PAGO no painel.
+          console.log(`✅ Pagamento aprovado para o WhatsApp: ${pedido.customer_whatsapp}. Enviar login manualmente ou via sistema.`);
         }
       }
     }

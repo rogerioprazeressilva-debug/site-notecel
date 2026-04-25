@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOTECEL | Contas Premium & Logins</title>
+    <title>NOTECEL SOLUÇÃO DIGITAL| Contas Premium & Logins</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23b91c1c%22/><text y=%22.75em%22 x=%2250%%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22900%22 font-size=%2270%22 fill=%22white%22>N</text></svg>">
     <link rel="stylesheet" href="./output.css?v=1.0.1">
@@ -38,7 +38,7 @@
     <div class="container mx-auto px-4 py-3 flex justify-between items-center">
         <div class="text-slate-900 font-black text-2xl tracking-tighter flex items-center gap-2">
             <span class="bg-red-700 text-white px-2 py-0.5 rounded-lg shadow-sm">N</span>
-            NOTECEL
+            TESTE NOTECEL
         </div>
 
         <div class="hidden md:flex items-center gap-6 text-[12px] font-bold uppercase tracking-widest text-slate-600">
@@ -82,9 +82,9 @@
             Contas Premium, Games e Serviços com entrega instantânea e o melhor suporte do Brasil. Comece agora.
         </p>
         <div class="mt-10 flex gap-4 reveal">
-            <button onclick="scrollToGrid('todos')" class="bg-red-700 hover:bg-red-800 text-white px-8 py-4 rounded-2xl font-bold transition transform hover:scale-105 shadow-xl">
+            <a href="loja.html" class="bg-red-700 hover:bg-red-800 text-white px-8 py-4 rounded-2xl font-bold transition transform hover:scale-105 shadow-xl flex items-center justify-center">
                 Ver Catálogo
-            </button>
+            </a>
             <button onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})" class="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-2xl font-bold transition">
                 Saiba Mais
             </button>
@@ -174,13 +174,10 @@
         </div>
     </footer>
 
-    <!-- Overlay do Carrinho (Fundo escuro ao abrir) -->
-    <div id="cartOverlay" onclick="toggleCart()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
-    
-    <!-- Overlay do Menu Mobile -->
+    <!-- ESTRUTURAS DE SUPORTE (Overlays e Menus) -->
     <div id="menuOverlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] hidden"></div>
+    <div id="cartOverlay" onclick="toggleCart()" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998;"></div>
 
-    <!-- Sidebar Menu Mobile (Lado Esquerdo) -->
     <div id="mobileMenu" class="fixed top-0 left-0 w-full max-w-[280px] h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 -translate-x-full">
         <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center">
             <h2 class="font-bold text-xl tracking-tight">Menu Notecel</h2>
@@ -195,21 +192,20 @@
         </div>
     </div>
 
-    <div id="cartSidebar" class="cart-sidebar fixed top-0 right-0 w-full max-w-sm h-full bg-white z-[120] shadow-2xl flex flex-col transition-transform duration-300 translate-x-full">
-        <div class="p-6 border-b bg-slate-900 text-white flex justify-between items-center relative">
-            <h2 class="font-bold text-xl">Meu Carrinho</h2>
-            <button onclick="toggleCart()" class="text-2xl text-slate-400 hover:text-white transition-colors">&times;</button>
+    <div id="cartSidebar" style="position: fixed; top: 0; right: -400px; width: 350px; height: 100%; background: white; z-index: 9999; box-shadow: -5px 0 15px rgba(0,0,0,0.2); transition: right 0.3s ease; display: flex; flex-direction: column;">
+        <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="font-weight: bold; margin: 0;">Meu Carrinho</h2>
+            <button onclick="toggleCart()" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
-        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div id="cart-items" style="flex: 1; overflow-y: auto; padding: 20px;">
+            <p class="text-center text-slate-400 mt-10">Seu carrinho está vazio.</p>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #eee;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                <span style="font-weight: bold;">Total:</span>
+                <span id="cart-total" style="color: #b91c1c; font-weight: 900;">R$ 0,00</span>
             </div>
-        <div class="p-6 border-t bg-slate-50">
-            <div class="flex justify-between items-center mb-4 text-xl font-black">
-                <span>Total:</span>
-                <span id="cart-total" class="text-red-700">R$ 0,00</span>
-            </div>
-            <button onclick="openCheckoutModal()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition">
-                Finalizar Pagamento PIX
-            </button>
+            <button onclick="openCheckoutModal()" style="width: 100%; background: #b91c1c; color: white; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">Finalizar Pedido</button>
         </div>
     </div>
 
@@ -294,6 +290,9 @@
                 <button id="btnCopy" class="w-full bg-yellow-400 hover:bg-yellow-500 text-red-900 font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition">
                     <i class="fa-regular fa-copy"></i> Copiar Código PIX
                 </button>
+                <button id="btnZapPix" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition">
+                    <i class="fa-brands fa-whatsapp"></i> Enviar PIX para meu WhatsApp
+                </button>
                 <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-4">O acesso será enviado ao WhatsApp informado.</p>
                 <button onclick="closeModal()" class="text-slate-400 text-xs hover:text-red-700 font-bold underline uppercase tracking-widest">Cancelar e Sair</button>
             </div>
@@ -316,6 +315,6 @@
         <span id="cart-count" class="absolute -top-1 -right-1 bg-slate-900 text-[10px] px-2 py-1 rounded-full border-2 border-white badge-pulse">0</span>
     </button>
 
-    <script src="./script.js"></script>
+    <script src="script.js?v=1.1.2"></script>
 </body>
 </html>
