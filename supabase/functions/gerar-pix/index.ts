@@ -71,7 +71,7 @@ serve(async (req) => {
     // 2. Verificar se o produto é digital ou físico (Loja)
     const { data: product } = await supabase
       .from('produtos')
-      .select('categoria')
+      .select('categoria, quantidade')
       .eq('id', firstProductId)
       .single();
 
@@ -89,6 +89,11 @@ serve(async (req) => {
       
       if (loginError || !loginData) throw new Error("Estoque esgotado para este produto digital.");
       loginId = loginData.id;
+    } else {
+      // Para produtos físicos, verificar quantidade
+      if (product.quantidade <= 0) {
+        throw new Error("Este produto está sem estoque no momento.");
+      }
     }
 
     // Criar o pedido no banco de dados
@@ -98,7 +103,8 @@ serve(async (req) => {
         pix_id: String(paymentData.id),
         total: valor,
         status: 'PENDENTE',
-        login_id: loginId, 
+        login_id: loginId,
+        produto_id: firstProductId,
         customer_whatsapp: customer_whatsapp,
         user_id: userId
       })

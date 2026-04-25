@@ -17,7 +17,8 @@ serve(async (req) => {
     const paymentId = body.data?.id || (body.resource ? body.resource.split('/').pop() : null);
     
     if (paymentId && (body.type === "payment" || body.action?.includes("payment"))) {
-      const accessToken = Deno.env.get('MP_ACCESS_TOKEN') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+      if (!accessToken) throw new Error("AccessToken não configurado");
 
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -32,9 +33,9 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         );
 
-        // BUSCA O PEDIDO (Adicionei 'status' no select)
+        // BUSCA O PEDIDO com os dados do login/produto para processar
         const { data: pedido, error: errorBusca } = await supabase.from('pedidos')
-          .select('id, login_id, status, customer_whatsapp, logins_disponiveis(username, password)')
+          .select('id, login_id, produto_id, status, customer_whatsapp, produtos(categoria, quantidade)')
           .eq('pix_id', String(paymentId))
           .single();
 
@@ -44,7 +45,7 @@ serve(async (req) => {
 
         if (pedido && pedido.status === 'PENDENTE') {
           // 1. Atualiza o pedido para PAGO
-          await supabase.from('pedidos').update({ status: 'PAGO' }).eq('id', pedido.id);
+          const { error: updateError } = await supabase.from('pedidos').update({ status: 'PAGO' }).eq('id', pedido.id);
           
           // 2. Se houver um login vinculado, marca como vendido
           if (pedido.login_id) {
@@ -52,6 +53,14 @@ serve(async (req) => {
               status: 'vendido', 
               sold_at: new Date().toISOString() 
             }).eq('id', pedido.login_id);
+          }
+          
+          // 3. Se for produto físico, dá baixa no estoque
+          if (pedido.produto_id && pedido.produtos?.categoria === 'Loja') {
+            const novaQuantidade = Math.max(0, (pedido.produtos.quantidade || 1) - 1);
+            await supabase.from('produtos')
+              .update({ quantidade: novaQuantidade })
+              .eq('id', pedido.produto_id);
           }
 
           console.log(`✅ Sucesso! Pedido ${pedido.id} processado.`);

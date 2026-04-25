@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.produtos (
     id SERIAL PRIMARY KEY,
     nome TEXT NOT NULL,
     preco NUMERIC(10, 2) NOT NULL,
+    quantidade INTEGER DEFAULT 0,
     categoria TEXT DEFAULT 'Logins',
     descricao TEXT,
     imagem_url TEXT,
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos (
     status TEXT DEFAULT 'PENDENTE' NOT NULL,
     user_id UUID REFERENCES auth.users(id),
     -- login_id será adicionado depois para evitar dependência circular
+    produto_id INTEGER REFERENCES public.produtos(id),
     customer_whatsapp TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
