@@ -7,10 +7,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const produtosReserva = [
-    { id: 1, nome: "Netflix Premium - 4K", preco: 19.90, categoria: "Streaming", imagem: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=500" },
-    { id: 2, nome: "Disney+ & Star+ (Combo)", preco: 24.90, categoria: "Streaming", imagem: "https://images.unsplash.com/photo-1633448555759-387ee28ac7fb?w=500" },
-    { id: 3, nome: "Gift Card Razer Gold R$ 50", preco: 50.00, categoria: "Acessórios", imagem: "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=500" },
-    { id: 4, nome: "Controle Gamer Pro", preco: 189.90, categoria: "Loja", imagem: "https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=500" }
+    { id: 1, nome: "Netflix Premium - 4K", preco: 19.90, categoria: "Streaming", quantidade: 10, imagem: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=500" },
+    { id: 2, nome: "Disney+ & Star+ (Combo)", preco: 24.90, categoria: "Streaming", quantidade: 5, imagem: "https://images.unsplash.com/photo-1633448555759-387ee28ac7fb?w=500" },
+    { id: 3, nome: "Gift Card Razer Gold R$ 50", preco: 50.00, categoria: "Acessórios", quantidade: 0, imagem: "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=500" },
+    { id: 4, nome: "Controle Gamer Pro", preco: 189.90, categoria: "Loja", quantidade: 3, imagem: "https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=500" }
 ];
 
 let produtosAtuais = [...produtosReserva];
@@ -34,6 +34,7 @@ async function carregarDados(categoriaFiltro = 'todos') {
                 nome: p.nome,
                 preco: p.preco,
                 categoria: p.categoria,
+                quantidade: p.quantidade || 0, // Mapeando a nova coluna
                 imagem: p.imagem_url || p.imagem
             }));
         }
@@ -53,19 +54,30 @@ function renderizarProdutos(categoriaFiltro = 'todos') {
 
     const listaFiltrada = categoriaFiltro === 'todos' ? produtosAtuais : produtosAtuais.filter(p => p.categoria === categoriaFiltro);
     
-    grid.innerHTML = listaFiltrada.map(produto => `
-        <div class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all product-card reveal-active">
-            <img src="${produto.imagem}" onerror="this.src='https://placehold.co/500x300?text=Imagem+Indisponivel'" class="w-full h-48 object-cover rounded-2xl mb-4 shadow-inner">
-            <span class="text-[10px] font-bold uppercase text-red-700 tracking-widest">${produto.categoria}</span>
+    grid.innerHTML = listaFiltrada.map(produto => {
+        const esgotado = produto.quantidade <= 0;
+        return `
+        <div class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all product-card reveal-active ${esgotado ? 'opacity-75' : ''}">
+            <div class="relative">
+                <img src="${produto.imagem}" onerror="this.src='https://placehold.co/500x300?text=Imagem+Indisponivel'" class="w-full h-48 object-cover rounded-2xl mb-4 shadow-inner">
+                ${esgotado ? '<span class="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-tighter">Esgotado</span>' : ''}
+            </div>
+            <div class="flex justify-between items-start">
+                <span class="text-[10px] font-bold uppercase text-red-700 tracking-widest">${produto.categoria}</span>
+                <span class="text-[10px] font-medium text-slate-400">Estoque: ${produto.quantidade}</span>
+            </div>
             <h3 class="font-bold text-slate-900 text-lg">${produto.nome}</h3>
             <div class="flex justify-between items-center mt-4">
                 <span class="font-black text-xl text-slate-900">R$ ${produto.preco.toFixed(2)}</span>
-                <button onclick="adicionarAoCarrinho(${produto.id})" class="bg-slate-900 text-white p-3 rounded-xl hover:bg-red-700 transition-all active:scale-90 shadow-lg">
-                    <i class="fa-solid fa-cart-plus"></i>
+                <button 
+                    onclick="adicionarAoCarrinho(${produto.id})" 
+                    ${esgotado ? 'disabled' : ''}
+                    class="${esgotado ? 'bg-slate-200 cursor-not-allowed' : 'bg-slate-900 hover:bg-red-700 active:scale-90 shadow-lg'} text-white p-3 rounded-xl transition-all">
+                    <i class="fa-solid ${esgotado ? 'fa-box-open' : 'fa-cart-plus'}"></i>
                 </button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 /**
@@ -93,6 +105,13 @@ function toggleMobileMenu() {
 function adicionarAoCarrinho(id) {
     const produto = produtosAtuais.find(p => p.id === id);
     if (!produto) return;
+
+    // Bloqueio de estoque
+    if (produto.quantidade <= 0) {
+        alert("Este produto acabou de esgotar!");
+        return;
+    }
+
     carrinho.push(produto);
     salvarCarrinho();
     
@@ -143,7 +162,7 @@ function atualizarCarrinho() {
 }
 
 /**
- * 5. FILTROS E AUTENTICAÇÃO
+ * 5. FILTROS E AUTENTICAÇÃO (Sem alterações)
  */
 function openAuthModal() { document.getElementById('authModal')?.classList.remove('hidden'); }
 function closeAuthModal() { document.getElementById('authModal')?.classList.add('hidden'); }
@@ -200,12 +219,11 @@ function filtrar(categoria) {
 }
 
 /**
- * 6. CHECKOUT E PIX (REVISADO PARA CORRIGIR MODAL VAZIO)
+ * 6. CHECKOUT E PIX
  */
 async function openCheckoutModal() {
     if (carrinho.length === 0) return alert("Seu carrinho está vazio!");
     
-    // Verifica sessão
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
         alert("Por favor, entre na sua conta para finalizar o pedido.");
@@ -213,21 +231,17 @@ async function openCheckoutModal() {
         return;
     }
 
-    // Prepara interface do modal
     const modal = document.getElementById('checkoutModal');
     const loader = document.getElementById('loader');
     const pixData = document.getElementById('pixData');
-    const fields = document.getElementById('checkoutFields');
     const success = document.getElementById('successState');
 
     modal?.classList.remove('hidden');
     loader?.classList.remove('hidden');
     pixData?.classList.add('hidden');
-    fields?.classList.add('hidden'); // Ocultamos inputs manuais
     success?.classList.add('hidden');
 
-    // Dispara a geração automática usando dados do perfil do usuário
-    const whatsapp = session.user.user_metadata.whatsapp || "11999999999"; 
+    const whatsapp = session.user.user_metadata.whatsapp || "Não informado"; 
     await executarCheckoutAutomatico(whatsapp, session);
 }
 
@@ -336,7 +350,6 @@ function togglePasswordVisibility() {
  * 7. INICIALIZAÇÃO
  */
 window.onload = async () => {
-    // UI Cleanup
     const sidebar = document.getElementById('cartSidebar');
     const overlay = document.getElementById('cartOverlay');
     if (sidebar) sidebar.classList.remove('open');
@@ -345,7 +358,6 @@ window.onload = async () => {
     await carregarDados();
     atualizarCarrinho();
 
-    // Estado do usuário
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (user) {
         const display = document.getElementById('userNameDisplay');
