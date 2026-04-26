@@ -358,7 +358,12 @@ CREATE POLICY "Admins inserem logs" ON public.logs_importacao FOR INSERT TO auth
 
 -- Garantir acesso às roles do sistema e sequência
 GRANT ALL ON TABLE public.logs_importacao TO postgres, authenticated, service_role;
-GRANT ALL ON SEQUENCE public.logs_importacao_id_seq TO postgres, authenticated, service_role;
+DO $$ 
+BEGIN 
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'logs_importacao_id_seq') THEN 
+        GRANT ALL ON SEQUENCE public.logs_importacao_id_seq TO postgres, authenticated, service_role; 
+    END IF; 
+END $$;
 
 -- 14. TABELA DE USUÁRIOS DO BOT (LEADS E CRM)
 CREATE TABLE IF NOT EXISTS public.bot_users (
@@ -366,8 +371,9 @@ CREATE TABLE IF NOT EXISTS public.bot_users (
     chat_id TEXT UNIQUE NOT NULL,
     first_name TEXT,
     username TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_interaction TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_interaction TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_blocked BOOLEAN DEFAULT false
 );
 
 ALTER TABLE public.bot_users ENABLE ROW LEVEL SECURITY;
@@ -375,7 +381,6 @@ ALTER TABLE public.bot_users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins veem usuários do bot" ON public.bot_users;
 CREATE POLICY "Admins veem usuários do bot" ON public.bot_users FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
 
--- Simplificado o nome para evitar erro de sintaxe 42601
 DROP POLICY IF EXISTS "Permitir upsert bot_users" ON public.bot_users;
 CREATE POLICY "Permitir upsert bot_users" ON public.bot_users 
 FOR ALL TO anon, authenticated, service_role 
@@ -383,8 +388,13 @@ USING (true)
 WITH CHECK (true);
 
 -- Garantir acesso às roles do sistema e sequência
-GRANT ALL ON TABLE public.bot_users TO postgres, authenticated, service_role;
-GRANT ALL ON SEQUENCE public.bot_users_id_seq TO postgres, authenticated, service_role;
+GRANT ALL ON TABLE public.bot_users TO "postgres", "authenticated", "service_role";
+DO $$ 
+BEGIN 
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'bot_users_id_seq') THEN 
+        GRANT ALL ON SEQUENCE public.bot_users_id_seq TO "postgres", "authenticated", "service_role"; 
+    END IF; 
+END $$;
 
 -- 15. TABELA DE LEADS DE MARKETING (WEB)
 CREATE TABLE IF NOT EXISTS public.leads_marketing (

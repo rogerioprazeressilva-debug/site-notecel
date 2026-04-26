@@ -27,12 +27,50 @@ Deno.serve(async (req) => {
     let message = body.message || body.edited_message
     let callbackData = null
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
     console.log(`📩 Recebido de ${message?.chat?.id}: ${message?.text || 'Botão'}`)
 
     // Detectar se é um clique em botão (Callback Query)
     if (body.callback_query) {
       message = body.callback_query.message
       callbackData = body.callback_query.data
+
+      // Handler para ações do Administrador
+      if (callbackData.startsWith('admin_')) {
+        if (callbackData.startsWith('admin_compras_')) {
+          const targetId = callbackData.replace('admin_compras_', '')
+          const { data: pedidos } = await supabase
+            .from('pedidos')
+            .select('total, status, produtos(nome)')
+            .eq('customer_whatsapp', `Telegram:${targetId}`)
+          
+          const totalVendas = pedidos?.length || 0
+          const soma = pedidos?.reduce((acc, p) => acc + Number(p.total), 0) || 0
+          
+          await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              callback_query_id: body.callback_query.id,
+              text: `📊 O usuário possui ${totalVendas} pedidos. Total: R$ ${soma.toFixed(2)}`,
+              show_alert: true 
+            })
+          })
+        }
+
+        if (callbackData.startsWith('admin_block_')) {
+          const targetId = callbackData.replace('admin_block_', '')
+          const { error: blockError } = await supabase.from('bot_users').update({ is_blocked: true }).eq('chat_id', targetId)
+          
+          const adminId = Deno.env.get('TELEGRAM_CHAT_ID') || "";
+          await enviarResposta(token, adminId, blockError ? `❌ Erro ao bloquear: ${blockError.message}` : `🚫 Usuário <code>${targetId}</code> foi bloqueado com sucesso.`)
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+      }
 
       // Tratar clique em produto esgotado
       if (callbackData.startsWith('esgotado_')) {
@@ -61,11 +99,59 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
     }
 
-    const adminChatId = Deno.env.get('TELEGRAM_CHAT_ID')
+    const adminChatId = Deno.env.get('TELEGRAM_CHAT_ID') || ""
     const chatId = String(message.chat.id)
     
     // Normalização do texto
     let text = (callbackData || message.text || "").toLowerCase().trim()
+
+    // --- REGISTRO AUTOMÁTICO DE USUÁRIO E AVISO AO ADMIN ---
+    const from = message.from;
+    if (from) {
+      // Verifica se o usuário já existe antes de atualizar
+      const { data: existingUser, error: checkError } = await supabase
+        .from('bot_users')
+        .select('chat_id, is_blocked')
+        .eq('chat_id', String(from.id))
+        .maybeSingle();
+
+      // Se o usuário estiver bloqueado, ignoramos a mensagem
+      if (existingUser?.is_blocked) {
+        console.log(`🚫 Usuário bloqueado tentando interagir: ${from.id}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      if (!existingUser && adminChatId) {
+        const novoUsuarioMsg = `👤 <b>NOVO LEAD NO BOT!</b>\n\n` +
+                               `📛 <b>Nome:</b> ${from.first_name}\n` +
+                               `🆔 <b>ID:</b> <code>${from.id}</code>\n` +
+                               `🏷 <b>Username:</b> @${from.username || 'N/A'}\n\n` +
+                               `🚀 <i>O usuário acabou de interagir pela primeira vez.</i>`;
+        
+        const adminActionButtons = {
+          inline_keyboard: [
+            [
+              { text: "🛒 Ver Compras", callback_data: `admin_compras_${from.id}` },
+              { text: "🚫 Bloquear", callback_data: `admin_block_${from.id}` }
+            ]
+          ]
+        };
+
+        // Envia o aviso para você (admin)
+        await enviarResposta(token, adminChatId, novoUsuarioMsg, adminActionButtons);
+      }
+
+      const { error: upsertError } = await supabase.from('bot_users').upsert({
+        chat_id: String(from.id),
+        first_name: from.first_name,
+        username: from.username,
+        last_interaction: new Date().toISOString()
+      }, { onConflict: 'chat_id' });
+
+      if (upsertError) {
+        console.error("⚠️ Erro ao registrar usuário no banco:", upsertError.message);
+      }
+    }
 
     // Mapeamento de botões de texto para comandos internos
     if (text.includes("catálogo")) text = "/catalogo";
@@ -85,27 +171,6 @@ Deno.serve(async (req) => {
     if (text.startsWith('/start')) text = '/start';
 
     const isAdmin = chatId === adminChatId
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    // --- REGISTRO AUTOMÁTICO DE USUÁRIO ---
-    // Registra ou atualiza o usuário no banco em cada interação
-    const from = message.from;
-    if (from) {
-      const { error: upsertError } = await supabase.from('bot_users').upsert({
-        chat_id: String(from.id),
-        first_name: from.first_name,
-        username: from.username,
-        last_interaction: new Date().toISOString()
-      }, { onConflict: 'chat_id' });
-
-      if (upsertError) {
-        console.error("⚠️ Erro ao registrar usuário no banco:", upsertError.message);
-      }
-    }
 
     // --- FLUXO DO CLIENTE (QUALQUER USUÁRIO) ---
 
