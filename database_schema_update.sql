@@ -270,8 +270,41 @@ WHERE plataforma = 'youtube' AND url_embed NOT LIKE '%/embed/%';
 -- INSERÇÃO/ATUALIZAÇÃO DO S.A PLAYER
 INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, plataforma)
 VALUES ('S.A PLAYER', 'O Aplicativo mais estável do mercado e disponível na play store.', 'https://play-lh.googleusercontent.com/97839352-7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://play.google.com/store/apps/details?id=com.saplayer.android', 'Android')
-ON CONFLICT (nome) DO UPDATE SET 
+ON CONFLICT (nome) DO UPDATE SET
     link_playstore = EXCLUDED.link_playstore,
     descricao = EXCLUDED.descricao,
-    plataforma = EXCLUDED.plataforma,
-    icone_url = EXCLUDED.icone_url;
+    icone_url = EXCLUDED.icone_url,
+    plataforma = EXCLUDED.plataforma;
+
+-- 11. FUNÇÃO PARA LIMPEZA DE LOGINS EXPIRADOS
+-- Esta função libera logins reservados por pedidos que não foram pagos em 30 minutos
+CREATE OR REPLACE FUNCTION public.limpar_logins_expirados()
+RETURNS void AS $$
+BEGIN
+    -- 1. Volta o status dos logins para 'disponivel' se o pedido estiver PENDENTE há mais de 30 min
+    UPDATE public.logins_disponiveis
+    SET status = 'disponivel',
+        reserved_by_pedido_id = NULL
+    WHERE status = 'reservado'
+    AND reserved_by_pedido_id IN (
+        SELECT id FROM public.pedidos
+        WHERE status = 'PENDENTE'
+        AND created_at < (NOW() - INTERVAL '30 minutes')
+    );
+
+    -- 2. Marca os pedidos como 'EXPIRADO' para que o cliente saiba que o PIX não vale mais
+    UPDATE public.pedidos
+    SET status = 'EXPIRADO'
+    WHERE status = 'PENDENTE'
+    AND created_at < (NOW() - INTERVAL '30 minutes');
+END;
+$$ LANGUAGE plpgsql;
+
+-- 12. AGENDAMENTO AUTOMÁTICO (CRON)
+-- Habilita a extensão de agendamento se ainda não estiver ativa
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Agenda a função para rodar a cada 5 minutos
+-- O comando abaixo garante que não criaremos agendamentos duplicados
+SELECT cron.unschedule('limpar-logins-30min');
+SELECT cron.schedule('limpar-logins-30min', '*/5 * * * *', 'SELECT public.limpar_logins_expirados()');

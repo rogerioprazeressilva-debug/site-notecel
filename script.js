@@ -7,6 +7,8 @@ const FUNC_URL = `${SUPABASE_URL}/functions/v1/gerar-pix`;
 
 let produtosGlobal = [];
 let carrinho = [];
+let categoriaAtual = 'todos';
+let ocultarEsgotados = false;
 
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
 async function carregarProdutos() {
@@ -29,7 +31,7 @@ async function carregarProdutos() {
         }
 
         produtosGlobal = data;
-        renderizarProdutos('todos');
+        criarTodosOsCardsIniciais(); // Cria todos os cards inicialmente
     } catch (err) {
         console.error('❌ Erro de Conexão:', err.message);
         showToast("Erro de Conexão", err.message, "fa-triangle-exclamation");
@@ -135,40 +137,95 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('video-container')) carregarVideos();
 });
 
-// 2. RENDERIZAR PRODUTOS NA GRID
-function renderizarProdutos(categoria = 'todos') {
+// Helper function para criar um único card de produto
+function criarCardProduto(produto) {
+    const isAvailable = produto.categoria === 'Loja' ? (produto.quantidade > 0) : true;
+    const card = document.createElement('div');
+    card.dataset.productId = produto.id; // Armazena o ID do produto para referência futura
+    card.className = `product-card bg-white p-4 md:p-6 rounded-2xl md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col h-full cursor-pointer hover:border-red-700/30 transition-all ${!isAvailable ? 'opacity-75' : ''}`;
+    card.onclick = (e) => {
+        if (!isAvailable) return showToast("Indisponível", "Este produto está temporariamente esgotado.", "fa-box-open");
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+            adicionarAoCarrinho(produto.id);
+        }
+    };
+    card.innerHTML = `
+        <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://via.placeholder.com/400x300?text=Produto+Indispon%C3%ADvel'">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-red-600">${produto.categoria}</span>
+            <span class="badge-stock ${isAvailable ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}">
+                ${isAvailable ? '<i class="fa-solid fa-check mr-1"></i> Em estoque' : '<i class="fa-solid fa-xmark mr-1"></i> Esgotado'}
+            </span>
+        </div>
+        <h3 class="font-bold text-slate-900 mb-1 md:mb-2 text-sm md:text-base">${produto.nome}</h3>
+        <p class="text-slate-500 text-[10px] md:text-xs mb-4 flex-1 line-clamp-2">${produto.descricao || ''}</p>
+        <div class="flex justify-between items-center mt-auto">
+            <span class="font-black text-base md:text-xl text-slate-900">R$ ${Number(produto.preco).toFixed(2).replace('.', ',')}</span>
+            <button onclick="adicionarAoCarrinho(${produto.id})" ${!isAvailable ? 'disabled' : ''} class="bg-slate-900 text-white p-2 md:p-3 rounded-lg md:rounded-xl hover:bg-red-700 transition-colors disabled:bg-slate-200 disabled:text-slate-400">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+    `;
+    return card;
+}
+
+// 2. CRIAR TODOS OS CARDS INICIAIS (chamado uma vez ao carregar produtos)
+function criarTodosOsCardsIniciais() {
     const grid = document.getElementById('product-grid');
     if (!grid) return;
 
     grid.innerHTML = '';
-    const filtrados = categoria === 'todos' 
-        ? produtosGlobal 
-        : produtosGlobal.filter(p => p.categoria === categoria);
-
-    filtrados.forEach(produto => {
-        const card = document.createElement('div');
-        card.className = 'product-card bg-white p-4 md:p-6 rounded-2xl md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col h-full cursor-pointer hover:border-red-700/30 transition-all';
-        card.onclick = (e) => {
-            // Impede disparar se clicar direto no botão (que já tem seu próprio listener)
-            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
-                adicionarAoCarrinho(produto.id);
-            }
-        };
-        card.innerHTML = `
-            <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://via.placeholder.com/400x300?text=Produto+Indispon%C3%ADvel'">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-red-600 mb-2">${produto.categoria}</span>
-            <h3 class="font-bold text-slate-900 mb-1 md:mb-2 text-sm md:text-base">${produto.nome}</h3>
-            <p class="text-slate-500 text-[10px] md:text-xs mb-4 flex-1 line-clamp-2">${produto.descricao || ''}</p>
-            <div class="flex justify-between items-center mt-auto">
-                <span class="font-black text-base md:text-xl text-slate-900">R$ ${Number(produto.preco).toFixed(2).replace('.', ',')}</span>
-                <button onclick="adicionarAoCarrinho(${produto.id})" class="bg-slate-900 text-white p-2 md:p-3 rounded-lg md:rounded-xl hover:bg-red-700 transition-colors">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
-            </div>
-        `;
+    produtosGlobal.forEach(produto => {
+        const card = criarCardProduto(produto);
         grid.appendChild(card);
     });
+    renderizarProdutos(categoriaAtual); // Aplica os filtros iniciais
 }
+
+// 2.1 RENDERIZAR PRODUTOS NA GRID (agora apenas gerencia visibilidade e animação)
+function renderizarProdutos(categoria = 'todos') {
+    const grid = document.getElementById('product-grid');
+    if (!grid) return;
+
+    categoriaAtual = categoria; // Atualiza a categoria atual
+
+    produtosGlobal.forEach(produto => {
+        const cardElement = grid.querySelector(`[data-product-id="${produto.id}"]`);
+        if (!cardElement) return; // Não deve acontecer se os cards foram criados inicialmente
+
+        const matchesCategory = (categoria === 'todos' || produto.categoria === categoria);
+        // Lógica de disponibilidade: 
+        // Produtos 'Loja' dependem da coluna quantidade. 
+        // Outros (Streaming) assumimos estoque digital (controle feito no checkout).
+        const isAvailable = produto.categoria === 'Loja' ? (produto.quantidade > 0) : true;
+        const shouldBeVisible = matchesCategory && (!ocultarEsgotados || isAvailable);
+
+        if (shouldBeVisible) {
+            // Se deve estar visível, garante que está exibido e remove fade-out
+            cardElement.style.display = '';
+            cardElement.classList.remove('fade-out');
+            cardElement.classList.add('fade-in'); // Adiciona fade-in para uma aparição suave
+            cardElement.addEventListener('animationend', () => {
+                cardElement.classList.remove('fade-in');
+            }, { once: true });
+        } else {
+            // Se deve estar oculto, adiciona fade-out e depois esconde
+            if (cardElement.style.display !== 'none') { // Apenas faz fade-out se estiver visível
+                cardElement.classList.add('fade-out');
+                cardElement.addEventListener('transitionend', () => {
+                    cardElement.style.display = 'none';
+                    cardElement.classList.remove('fade-out'); // Limpa a classe
+                }, { once: true });
+            }
+        }
+    });
+}
+
+// 2.1 LÓGICA DO FILTRO DE DISPONIBILIDADE
+window.toggleOcultarEsgotados = () => {
+    ocultarEsgotados = !ocultarEsgotados;
+    renderizarProdutos(categoriaAtual); // Re-aplica os filtros e animações
+};
 
 // 3. LÓGICA DO CARRINHO
 window.adicionarAoCarrinho = async (id) => {

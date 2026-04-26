@@ -86,6 +86,17 @@
             <button onclick="renderizarProdutos('Streaming')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Streaming</button>
             <button onclick="renderizarProdutos('Acessórios')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Acessórios</button>
             <button onclick="renderizarProdutos('Loja')" class="px-6 py-2 rounded-full bg-white border border-slate-200 font-bold text-xs uppercase tracking-widest hover:border-red-700 transition-all">Loja</button>
+            
+            <div class="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+
+            <label class="flex items-center gap-3 cursor-pointer group bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all hover:shadow-md">
+                <div class="relative">
+                    <input type="checkbox" onchange="toggleOcultarEsgotados()" class="sr-only peer">
+                    <div class="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:bg-red-600 transition-all"></div>
+                    <div class="absolute left-1 top-1 w-2 h-2 bg-white rounded-full transition-all peer-checked:translate-x-4"></div>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-red-700 transition-colors">Ocultar esgotados</span>
+            </label>
         </div>
 
         <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">

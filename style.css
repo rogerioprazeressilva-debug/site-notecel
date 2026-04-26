@@ -148,3 +148,31 @@ button:disabled {
     opacity: 1;
     transform: translateY(0);
 }
+
+/* Badges de Estoque */
+.badge-stock {
+    font-size: 8px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Animações de Fade para Cards de Produto */
+.product-card.fade-out {
+    opacity: 0;
+    transform: translateY(20px); /* Move ligeiramente para baixo ao sair */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.product-card.fade-in {
+    opacity: 0; /* Começa invisível */
+    transform: translateY(20px); /* Começa ligeiramente abaixo */
+    animation: fadeInAnimation 0.3s ease-in forwards; /* Usa animação para o estado inicial e depois transição */
+}
+@keyframes fadeInAnimation {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+}
