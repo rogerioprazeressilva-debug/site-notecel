@@ -146,8 +146,12 @@ WHERE status = 'reservado';
 
 -- 7. HABILITAR REALTIME
 -- Isso permite que o site "ouça" quando o pagamento for aprovado
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pedidos') THEN ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos; END IF;
+-- Tentamos adicionar a tabela à publicação; se já existir, o erro será ignorado silenciosamente em muitos contextos de script
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'pedidos') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
+    END IF;
 END $$;
 
 -- 8. TABELA DE APLICATIVOS
@@ -163,19 +167,10 @@ CREATE TABLE IF NOT EXISTS public.aplicativos (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Garantir que as colunas de links existam caso a tabela já tenha sido criada antes
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_playstore') THEN
-        ALTER TABLE public.aplicativos ADD COLUMN link_playstore TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_downloader') THEN
-        ALTER TABLE public.aplicativos ADD COLUMN link_downloader TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_ntdown') THEN
-        ALTER TABLE public.aplicativos ADD COLUMN link_ntdown TEXT;
-    END IF;
-END $$;
+-- Garantir que as colunas de links existam sem usar blocos DO $$
+ALTER TABLE public.aplicativos ADD COLUMN IF NOT EXISTS link_playstore TEXT;
+ALTER TABLE public.aplicativos ADD COLUMN IF NOT EXISTS link_downloader TEXT;
+ALTER TABLE public.aplicativos ADD COLUMN IF NOT EXISTS link_ntdown TEXT;
 
 ALTER TABLE public.aplicativos ENABLE ROW LEVEL SECURITY;
 
