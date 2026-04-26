@@ -1,5 +1,5 @@
 // ⚠️ IMPORTANTE: Substitua as strings abaixo pelas chaves reais do seu painel Supabase
-const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co'; // <--- COLOQUE A SUA PROJECT URL AQUI
+const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co'.replace(/\/$/, ''); // Remove barra final se houver
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw'; // <--- COLOQUE A SUA ANON PUBLIC KEY AQUI
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -54,7 +54,7 @@ async function carregarApps() {
         grid.innerHTML = data.map(app => `
             <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-6 group hover:border-red-700/30 transition-all transform hover:-translate-y-1">
                 <div class="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 shadow-inner bg-slate-50">
-                    <img src="${app.icone_url || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=App'">
+                    <img src="${app.icone_url || 'https://placehold.co/150'}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/150?text=App'">
                 </div>
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
@@ -62,9 +62,23 @@ async function carregarApps() {
                         <span class="text-[8px] bg-slate-100 px-2 py-0.5 rounded-full font-black uppercase text-slate-400">${app.plataforma}</span>
                     </div>
                     <p class="text-slate-500 text-xs line-clamp-2 mb-3">${app.descricao || ''}</p>
-                    <a href="${app.download_url}" target="_blank" class="inline-flex items-center gap-2 text-red-700 font-bold text-[10px] uppercase tracking-widest hover:gap-3 transition-all">
-                        Download <i class="fa-solid fa-arrow-right-long"></i>
-                    </a>
+                    
+                    <div class="flex flex-wrap gap-3">
+                        ${app.link_playstore ? `
+                            <a href="${app.link_playstore}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 hover:text-red-700 transition-colors">
+                                <i class="fa-brands fa-google-play"></i> Play Store
+                            </a>` : ''}
+                        
+                        ${app.link_downloader ? `
+                            <a href="https://www.google.com/search?q=Downloader+Code+${app.link_downloader}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 hover:text-red-700 transition-colors">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Downloader: ${app.link_downloader}
+                            </a>` : ''}
+
+                        ${app.link_ntdown ? `
+                            <a href="${app.link_ntdown}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-red-700 hover:text-red-800 transition-colors">
+                                <i class="fa-solid fa-file-apk"></i> NTDown (APK)
+                            </a>` : ''}
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -99,7 +113,7 @@ function renderizarProdutos(categoria = 'todos') {
             }
         };
         card.innerHTML = `
-            <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://via.placeholder.com/400x300?text=Produto+Indispon%C3%ADvel'">
+            <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://placehold.co/400x300?text=Indisponivel'">
             <span class="text-[10px] font-bold uppercase tracking-widest text-red-600 mb-2">${produto.categoria}</span>
             <h3 class="font-bold text-slate-900 mb-1 md:mb-2 text-sm md:text-base">${produto.nome}</h3>
             <p class="text-slate-500 text-[10px] md:text-xs mb-4 flex-1 line-clamp-2">${produto.descricao || ''}</p>
@@ -241,6 +255,14 @@ window.checkout = async () => {
 
 window.closeModal = () => {
     document.getElementById('checkoutModal').classList.add('hidden');
+    // Resetar interface de checkout para permitir nova tentativa
+    const loader = document.getElementById('loader');
+    const pixData = document.getElementById('pixData');
+    const checkoutFields = document.getElementById('checkoutFields');
+    
+    if (loader) loader.classList.remove('hidden');
+    if (pixData) pixData.classList.add('hidden');
+    if (checkoutFields) checkoutFields.classList.remove('hidden');
 };
 
 // 5. SISTEMA DE AUTENTICAÇÃO (Login/Cadastro)
@@ -467,8 +489,12 @@ async function finalizarCompra(dadosCarrinho) {
         ouvirStatusPagamento(result.id_pagamento); // Usando o pix_id retornado
 
     } catch (error) {
-        console.error(error);
-        showToast("Erro no Pedido", error.message, "fa-circle-exclamation");
+        console.error("Erro detalhado na finalização:", error);
+        if (error.message === "Failed to fetch") {
+            showToast("Erro de Conexão", "Não foi possível conectar ao servidor de pagamentos. Verifique sua internet ou tente novamente em instantes.", "fa-wifi");
+        } else {
+            showToast("Erro no Pedido", error.message, "fa-circle-exclamation");
+        }
     } finally {
         if(btn) {
             btn.disabled = false;
@@ -521,6 +547,10 @@ function ouvirStatusPagamento(pixId) {
                 if (loader) loader.classList.add('hidden');
                 if (pixData) pixData.classList.add('hidden');
                 if (successState) successState.classList.remove('hidden');
+                
+                // Esvazia o carrinho e atualiza os badges/lista na interface
+                carrinho = [];
+                atualizarCarrinhoUI();
                 
                 console.log("✅ Pagamento confirmado via Realtime!");
                 supabaseClient.removeChannel(channel);

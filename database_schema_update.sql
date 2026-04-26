@@ -19,12 +19,9 @@ CREATE TABLE IF NOT EXISTS public.produtos (
 -- Habilitar RLS e permitir leitura pública para produtos
 ALTER TABLE public.produtos ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Produtos visíveis para todos') THEN
-        CREATE POLICY "Produtos visíveis para todos" ON public.produtos FOR SELECT TO anon, authenticated USING (true);
-    END IF;
-END $$;
+-- Criar política de leitura pública (Usamos DROP para evitar o bloco IF/DO)
+DROP POLICY IF EXISTS "Produtos visíveis para todos" ON public.produtos;
+CREATE POLICY "Produtos visíveis para todos" ON public.produtos FOR SELECT TO anon, authenticated USING (true);
 
 -- 2. Tabela de Logins Disponíveis (Criada antes de Pedidos para resolver dependência)
 CREATE TABLE IF NOT EXISTS public.logins_disponiveis (
@@ -153,13 +150,9 @@ SELECT id, 'otaku_br@nime.com', 'naruto_shippuden' FROM public.produtos WHERE no
 
 -- 7. HABILITAR REALTIME
 -- Isso permite que o site "ouça" quando o pagamento for aprovado
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pedidos') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
-    END IF;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pedidos') THEN ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos; END IF;
 END $$;
-;
 
 -- 8. TABELA DE APLICATIVOS
 CREATE TABLE IF NOT EXISTS public.aplicativos (
@@ -167,10 +160,17 @@ CREATE TABLE IF NOT EXISTS public.aplicativos (
     nome TEXT NOT NULL,
     descricao TEXT,
     icone_url TEXT,
-    download_url TEXT NOT NULL,
+    link_playstore TEXT,
+    link_downloader TEXT,
+    link_ntdown TEXT,
     plataforma TEXT DEFAULT 'Android',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Garantir que as colunas de links existam caso a tabela já tenha sido criada antes
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_playstore') THEN ALTER TABLE public.aplicativos ADD COLUMN link_playstore TEXT, ADD COLUMN link_downloader TEXT, ADD COLUMN link_ntdown TEXT; END IF;
+END $$;
 
 ALTER TABLE public.aplicativos ENABLE ROW LEVEL SECURITY;
 
@@ -185,10 +185,33 @@ GRANT ALL ON SEQUENCE public.aplicativos_id_seq TO postgres, anon, authenticated
 NOTIFY pgrst, 'reload schema';
 
 -- Dados iniciais para aplicativos
-INSERT INTO public.aplicativos (nome, descricao, icone_url, download_url, plataforma)
-SELECT 'IPTV Smarters Pro', 'Melhor player para listas IPTV com interface moderna.', 'https://play-lh.googleusercontent.com/1-h9mZp-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://www.iptvsmarters.com/smarters.apk', 'Android'
+
+-- 9. CONFIGURAÇÃO DE STORAGE (OPCIONAL - RECOMENDADO)
+-- Cria um bucket para armazenar suas fotos se ele não existir
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('notecell_media', 'notecell_media', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Permite que qualquer pessoa veja as fotos
+CREATE POLICY "Fotos públicas" ON storage.objects
+FOR SELECT TO public USING (bucket_id = 'notecell_media');
+
+-- Permite que você (admin) suba fotos (exige autenticação)
+CREATE POLICY "Admin pode subir fotos" ON storage.objects
+FOR INSERT TO authenticated WITH CHECK (bucket_id = 'notecell_media');
+
+INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
+SELECT 'IPTV Smarters Pro', 'Melhor player para listas IPTV com interface moderna.', 'https://play-lh.googleusercontent.com/1-h9mZp-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://play.google.com/store/apps/details?id=com.nst.iptvsmarterstvbox', '78292', 'https://www.iptvsmarters.com/smarters.apk', 'Android'
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'IPTV Smarters Pro');
 
-INSERT INTO public.aplicativos (nome, descricao, icone_url, download_url, plataforma)
-SELECT 'XCIPTV Player', 'Excelente alternativa para reprodução de conteúdo.', 'https://play-lh.googleusercontent.com/9v_mX_X-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://apkpure.com/xciptv-player/com.nathnetwork.xciptv', 'Multiplataforma'
+INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
+SELECT 'XCIPTV Player', 'Excelente alternativa para reprodução de conteúdo.', 'https://play-lh.googleusercontent.com/9v_mX_X-L7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://play.google.com/store/apps/details?id=com.nathnetwork.xciptv', '91234', 'https://ottrun.com/xciptv.apk', 'Multiplataforma'
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'XCIPTV Player');
+
+INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
+SELECT 'Downloader', 'Ferramenta essencial para navegar e baixar arquivos diretamente na sua Android TV ou TV Box.', 'https://placehold.co/150?text=Downloader', 'https://play.google.com/store/apps/details?id=com.esaba.downloader', '80456', 'https://www.aftvnews.com/downloader.apk', 'Android TV'
+WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'Downloader');
+
+INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
+SELECT 'NTDown', 'Gerenciador de downloads otimizado para instalação rápida de apps via link direto.', 'https://placehold.co/150?text=NTDown', 'https://play.google.com/store/apps/details?id=com.ntdown.app', '55678', 'https://notecel.com/ntdown.apk', 'Android'
+WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'NTDown');

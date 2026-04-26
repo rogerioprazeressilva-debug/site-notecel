@@ -108,22 +108,21 @@
     </section>
 
     <section class="py-16 bg-slate-50 px-6">
-        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-                <h3 class="font-bold text-slate-900">Streaming</h3>
-                <p class="text-3xl font-black my-4 text-slate-900">R$ 14,90</p>
-                <button onclick="scrollToGrid('Streaming')" class="w-full py-3 bg-slate-100 rounded-xl font-bold">Ver Contas</button>
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Container para Vídeo do YouTube -->
+            <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+                <h3 class="text-center font-bold text-slate-900 mb-4 uppercase tracking-widest text-[10px] italic">Apresentação YouTube</h3>
+                <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner">
+                    <iframe class="w-full h-full" src="https://www.youtube.com/embed/SEU_ID_DO_VIDEO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                </div>
             </div>
-            <div class="bg-slate-900 p-8 rounded-[2rem] shadow-2xl border-4 border-red-700 relative scale-105">
-                <span class="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-700 text-white text-[10px] px-4 py-1 rounded-full uppercase font-bold">Popular</span>
-                <h3 class="font-bold text-white">Acessórios</h3>
-                <p class="text-3xl font-black my-4 text-white">R$ 19,90</p>
-                <button onclick="scrollToGrid('Acessórios')" class="w-full py-3 bg-red-700 text-white rounded-xl font-bold">Explorar</button>
-            </div>
-            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-                <h3 class="font-bold text-slate-900">Combos VIP</h3>
-                <p class="text-3xl font-black my-4 text-slate-900">R$ 49,90</p>
-                <button onclick="scrollToGrid('todos')" class="w-full py-3 bg-slate-100 rounded-xl font-bold">Ver Combos</button>
+
+            <!-- Container para Vídeo do Facebook -->
+            <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+                <h3 class="text-center font-bold text-slate-900 mb-4 uppercase tracking-widest text-[10px] italic">Destaque Facebook</h3>
+                <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner">
+                    <iframe src="https://www.facebook.com/plugins/video.php?height=315&href=LINK_DO_VIDEO_FACEBOOK" class="w-full h-full" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+                </div>
             </div>
         </div>
     </section>
@@ -212,6 +211,6 @@
         <span class="cart-count-badge absolute -top-1 -right-1 bg-slate-900 text-[10px] px-2 py-1 rounded-full border-2 border-white">0</span>
     </button>
 
-    <script src="script.js?v=1.1.3"></script>
+    <script src="script.js?v=1.1.4"></script>
 </body>
 </html>

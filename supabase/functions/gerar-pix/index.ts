@@ -1,13 +1,33 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-customer-info',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+async function enviarNotificacaoTelegram(mensagem: string) {
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
+  const chatId = Deno.env.get('TELEGRAM_CHAT_ID');
+  
+  if (!token || !chatId) {
+    console.warn("Telegram: Token ou ChatID não configurados.");
+    return;
+  }
+
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: mensagem,
+      parse_mode: 'Markdown'
+    })
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
 
   try {
     const body = await req.json()
@@ -30,8 +50,8 @@ serve(async (req) => {
     let userId = null;
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id;
+      const { data } = await supabase.auth.getUser(token);
+      userId = data?.user?.id;
     }
 
     if (!userId) throw new Error("Autenticação necessária: Faça login para gerar o pagamento.");
@@ -73,7 +93,7 @@ serve(async (req) => {
     // 2. Verificar se o produto é digital ou físico (Loja)
     const { data: product, error: productError } = await supabase
       .from('produtos')
-      .select('categoria, quantidade')
+      .select('nome, categoria, quantidade')
       .eq('id', firstProductId)
       .single();
 
@@ -126,6 +146,13 @@ serve(async (req) => {
 
       if (updateLoginError) throw updateLoginError;
     }
+
+    // Notificar Telegram que um PIX foi gerado
+    const msgTelegram = `💠 *NOVO PIX GERADO* 🛒\n\n` +
+                        `📦 *Produto:* ${product.nome}\n` +
+                        `💵 *Valor:* R$ ${Number(valor).toFixed(2)}\n` +
+                        `📱 *WhatsApp:* ${customer_whatsapp}`;
+    await enviarNotificacaoTelegram(msgTelegram);
 
     return new Response(
       JSON.stringify({
