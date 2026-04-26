@@ -98,7 +98,13 @@ async function carregarVideosHome() {
 
     try {
         const { data: videos, error } = await supabaseClient.from('videos_inicio').select('*').order('ordem', { ascending: true });
-        if (error) throw error;
+        
+        if (error) {
+            console.error("❌ Erro Supabase Vídeos:", error.message);
+            return;
+        }
+
+        console.log("📺 Dados de vídeos recebidos:", videos);
 
         if (videos && videos.length > 0) {
             container.innerHTML = videos.map(video => {
@@ -117,27 +123,29 @@ async function carregarVideosHome() {
                         const videoId = finalUrl.split('/').pop();
                         finalUrl = `https://www.youtube.com/embed/${videoId}`;
                     }
-                    // Adiciona parâmetro para não mostrar vídeos relacionados de outros canais
-                    if (!finalUrl.includes('?')) finalUrl += '?rel=0';
+                    // Autoplay e Mudo para YouTube
+                    finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'autoplay=1&mute=1&rel=0&enablejsapi=1';
                 } 
                 // TRATAMENTO AUTOMÁTICO DE LINKS FACEBOOK
                 else if (video.plataforma.toLowerCase() === 'facebook') {
                     if (!finalUrl.includes('facebook.com/plugins/video.php')) {
-                        finalUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(finalUrl)}&show_text=0&t=0`;
+                        finalUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(finalUrl)}&show_text=0&t=0&autoplay=true&mute=true`;
                     }
                 }
 
                 if (video.plataforma.toLowerCase() === 'youtube' || video.plataforma.toLowerCase() === 'facebook') {
-                    mediaHtml = `<iframe class="w-full h-full" src="${finalUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+                    mediaHtml = `<iframe id="frame-${video.id}" class="w-full h-full pointer-events-none" src="${finalUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
                 } else {
                     // Caso seja 'storage' ou link direto de arquivo MP4
-                    mediaHtml = `<video class="w-full h-full rounded-2xl" controls><source src="${finalUrl}" type="video/mp4">Seu navegador não suporta vídeos.</video>`;
+                    mediaHtml = `<video id="video-${video.id}" class="w-full h-full rounded-2xl" autoplay muted playsinline loop><source src="${finalUrl}" type="video/mp4">Seu navegador não suporta vídeos.</video>`;
                 }
                 return `
                     <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 reveal">
-                        <h3 class="text-center font-bold text-slate-900 mb-4 uppercase tracking-widest text-[10px] italic">${video.titulo}</h3>
-                        <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner">
+                        <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner relative group">
                             ${mediaHtml}
+                            <button onclick="toggleVolume(this, '${video.plataforma}', '${video.id}')" class="mute-toggle absolute bottom-4 right-4 bg-slate-900/80 text-white px-4 py-2 rounded-full backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border border-white/10 shadow-xl">
+                                <i class="fa-solid fa-volume-xmark"></i> Ativar Som
+                            </button>
                         </div>
                     </div>
                 `;
@@ -146,12 +154,41 @@ async function carregarVideosHome() {
             // Ativa o observer para os novos elementos criados
             container.querySelectorAll('.reveal').forEach(el => observer.observe(el));
         } else {
-            container.parentElement.classList.add('hidden'); // Esconde a seção se não houver vídeos
+            console.warn("⚠️ NENHUM VÍDEO ENCONTRADO NA TABELA 'videos_inicio'");
+            container.innerHTML = '<p class="col-span-full text-center text-slate-400">Nenhum vídeo cadastrado.</p>';
         }
     } catch (err) {
         console.error("Erro ao carregar vídeos:", err);
     }
 }
+
+// FUNÇÃO PARA ALTERNAR SOM
+window.toggleVolume = (btn, plataforma, id) => {
+    const icon = btn.querySelector('i');
+    
+    if (plataforma === 'youtube') {
+        const iframe = document.getElementById(`frame-${id}`);
+        // Comando via PostMessage para o Iframe do YouTube
+        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+        iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+    } else if (plataforma === 'storage') {
+        const video = document.getElementById(`video-${id}`);
+        if (video) {
+            video.muted = !video.muted;
+            if (!video.muted) {
+                icon.classList.replace('fa-volume-xmark', 'fa-volume-high');
+                btn.innerHTML = `<i class="fa-solid fa-volume-high"></i> Som Ativo`;
+            } else {
+                icon.classList.replace('fa-volume-high', 'fa-volume-xmark');
+                btn.innerHTML = `<i class="fa-solid fa-volume-xmark"></i> Ativar Som`;
+            }
+            return;
+        }
+    }
+    
+    // Para YouTube e Facebook (onde o controle é via API), apenas removemos o botão após o clique para não poluir
+    btn.style.display = 'none';
+};
 
 // Inicialização inteligente
 window.addEventListener('DOMContentLoaded', () => {

@@ -98,6 +98,12 @@ body {
 }
 .cart-bump { animation: cart-bump 0.4s ease-out; }
 
+/* Fallback para aspect-video caso o Tailwind não carregue */
+.aspect-video {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+}
+
 .reveal { 
     opacity: 0; 
     transform: translateY(30px); 
@@ -124,4 +130,15 @@ button:disabled {
 #toastContainer { 
     transition: background 0.3s ease; 
     z-index: 99999 !important; /* Garante que fique acima de modais (150) e sidebar (9999) */
+}
+
+/* Estilo para o botão de Ativar Som */
+.mute-toggle {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+.group:hover .mute-toggle {
+    opacity: 1;
+    transform: translateY(0);
 }

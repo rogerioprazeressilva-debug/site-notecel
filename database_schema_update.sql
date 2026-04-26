@@ -238,4 +238,5 @@ NOTIFY pgrst, 'reload schema';
 
 -- Exemplo de inserção (Substitua pelos seus links)
 INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) VALUES 
-('Apresentação Notecel', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube', 1);
+('', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube', 1),
+('', 'https://www.facebook.com/facebook/videos/10153231339946729/', 'facebook', 2);
