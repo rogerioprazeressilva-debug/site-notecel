@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin | NOTECEL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=1.0.2">
+    <link rel="stylesheet" href="./output.css?v=1.0.1">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <nav class="bg-slate-900 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="font-black tracking-tighter text-xl italic uppercase">Notecel Admin</h1>
+            <div class="flex gap-4">
+                <a href="index.html" class="text-xs font-bold uppercase tracking-widest opacity-70 hover:opacity-100">Voltar para Loja</a>
+                <button onclick="logout()" class="text-xs font-bold uppercase tracking-widest text-red-500">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto py-10 px-4">
+        <!-- Resumo de Vendas e Estoque -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex items-center gap-5">
+                <div class="w-12 h-12 bg-green-100 text-green-700 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                    <i class="fa-solid fa-sack-dollar"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Faturamento (Pago)</p>
+                    <h3 id="faturamentoTotal" class="text-2xl font-black text-slate-900 italic">R$ 0,00</h3>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex items-center gap-5">
+                <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                    <i class="fa-solid fa-cart-check"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Vendas Confirmadas</p>
+                    <h3 id="vendasConfirmadas" class="text-2xl font-black text-slate-900 italic">0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex items-center gap-5">
+                <div class="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Itens em Estoque</p>
+                    <h3 id="itensDisponiveis" class="text-2xl font-black text-slate-900 italic">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico de Vendas -->
+        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 mb-10">
+            <h2 class="text-xl font-black mb-6 uppercase italic">Desempenho (Últimos 7 dias)</h2>
+            <div class="h-[300px] w-full">
+                <canvas id="vendasChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Formulário de Cadastro -->
+            <div class="lg:col-span-1">
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-black mb-6 uppercase italic">Novo Login</h2>
+                    <form id="formNovoLogin" onsubmit="window.cadastrarLogin(event)" class="space-y-4">
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-slate-400 ml-2">Produto</label>
+                            <select id="selectProduto" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-red-700"></select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-slate-400 ml-2">Usuário/E-mail</label>
+                            <input type="text" id="loginUser" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-red-700" placeholder="ex: cliente@email.com">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-slate-400 ml-2">Senha</label>
+                            <input type="text" id="loginPass" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-red-700" placeholder="ex: senha123">
+                        </div>
+                        <button type="submit" class="w-full bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-red-800 transition-all active:scale-95">Cadastrar no Estoque</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabela de Estoque Atual -->
+            <div class="lg:col-span-2">
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                        <h2 class="text-xl font-black uppercase italic">Estoque Digital</h2>
+                        <input type="text" id="searchLoginInput" oninput="window.carregarLoginsAdmin(this.value)" placeholder="Buscar por nome do produto..." class="w-full md:w-auto flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-red-700 text-sm">
+                    </div>
+                    <div class="flex justify-end items-center mb-6 gap-3">
+                        <div class="flex gap-3">
+                            <button onclick="document.getElementById('importInput').click()" class="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase hover:bg-slate-700 transition-colors active:scale-95"><i class="fa-solid fa-file-import mr-2"></i>Importar</button>
+                            <input type="file" id="importInput" class="hidden" accept=".csv,.txt" onchange="window.processarImportacao(event)">
+                            <button onclick="window.exportarLoginsParaCSV()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-xs font-bold uppercase hover:bg-blue-600 transition-colors active:scale-95"><i class="fa-solid fa-file-csv mr-2"></i>Exportar CSV</button>
+                            <button onclick="window.carregarLoginsAdmin()" class="text-slate-400 hover:text-red-700 transition-colors"><i class="fa-solid fa-rotate"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Progresso de Importação -->
+                    <div id="importProgressContainer" class="hidden mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span id="importStatusText" class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Processando importação...</span>
+                            <span id="importPercentage" class="text-[10px] font-black text-red-700">0%</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="importProgressBar" class="h-full bg-red-700 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="border-b border-slate-100">
+                                <tr>
+                                    <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Produto</th>
+                                    <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Usuário</th>
+                                    <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Senha</th>
+                                    <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Status</th>
+                                    <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaLogins" class="text-sm">
+                                <!-- Carregado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Reutilizamos o Sistema de Toast para avisos -->
+    <div id="toastContainer" class="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none hidden"></div>
+
+    <script src="script.js?v=1.1.7"></script>
+    <script>
+        // Inicialização específica do Admin
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            
+            // Validação de e-mail administrativo
+            if (!session || session.user.email !== 'rogerioprazeressilva@gmail.com') {
+                alert("Acesso negado: Somente o administrador rogerioprazeressilva@gmail.com pode acessar esta página.");
+                window.location.href = "index.html";
+                return;
+            }
+
+            // Se for o admin, carrega os dados
+            window.carregarProdutosAdmin();
+            window.carregarLoginsAdmin();
+            window.carregarResumoAdmin();
+            window.carregarGraficoVendas();
+            window.iniciarMonitoramentoPedidos();
+        });
+    </script>
+</body>
+</html>

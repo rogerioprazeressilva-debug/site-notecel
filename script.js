@@ -16,6 +16,7 @@ const PLAYLIST_ID = 'PLR5p_8U3vO_D7K7qX9W_S4tq_V_m8J0Xw'; // <--- COLOQUE O ID D
 let volumeSlider;
 let lastVolume = 20;
 let musicStarted = false;
+let vendasChartInstance = null;
 
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
 async function carregarProdutos() {
@@ -297,6 +298,364 @@ window.toggleMute = () => {
     bgPlayer.setVolume(volumeSlider.value);
     localStorage.setItem('bgMusicVolume', volumeSlider.value);
     atualizarIconeVolume(volumeSlider.value);
+};
+
+// --- FUNÇÕES DO PAINEL ADMIN ---
+
+window.carregarProdutosAdmin = async () => {
+    const select = document.getElementById('selectProduto');
+    if (!select) return;
+
+    const { data } = await supabaseClient.from('produtos').select('id, nome').neq('categoria', 'Loja');
+    if (data) {
+        select.innerHTML = data.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    }
+};
+
+window.cadastrarLogin = async (e) => {
+    e.preventDefault();
+    const produtoId = document.getElementById('selectProduto').value;
+    const username = document.getElementById('loginUser').value;
+    const password = document.getElementById('loginPass').value;
+
+    try {
+        const { error } = await supabaseClient.from('logins_disponiveis').insert({
+            produto_id: produtoId,
+            username: username,
+            password: password,
+            status: 'disponivel'
+        });
+
+        if (error) throw error;
+
+        showToast("Sucesso", "Novo login adicionado ao estoque!", "fa-check-circle");
+        e.target.reset();
+        window.carregarLoginsAdmin();
+    } catch (err) {
+        showToast("Erro", err.message, "fa-circle-xmark");
+    }
+};
+
+window.carregarLoginsAdmin = async (searchTerm = '') => {
+    const tabela = document.getElementById('tabelaLogins');
+    if (!tabela) return;
+
+    let query = supabaseClient
+        .from('logins_disponiveis')
+        .select('id, username, password, status, produtos(nome)')
+        .order('created_at', { ascending: false });
+    
+    if (searchTerm) {
+        query = query.ilike('produtos.nome', `%${searchTerm}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) return console.error(error);
+
+    tabela.innerHTML = data.map(l => `
+        <tr class="border-b border-slate-50">
+            <td class="py-4 font-bold text-slate-700">${l.produtos?.nome || 'N/A'}</td>
+            <td class="py-4 text-slate-500 cursor-pointer hover:text-red-700 transition-colors" title="Clique para copiar" onclick="window.copiarTexto('${l.username}', this)">${l.username}</td>
+            <td class="py-4 text-slate-500 cursor-pointer hover:text-red-700 transition-colors" title="Clique para copiar" onclick="window.copiarTexto('${l.password}', this)">${l.password}</td>
+            <td class="py-4">
+                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${l.status === 'disponivel' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                    ${l.status}
+                </span>
+            </td>
+            <td class="py-4">
+                <button onclick="window.excluirLogin(${l.id})" class="text-slate-300 hover:text-red-700 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+window.excluirLogin = async (id) => {
+    if (!confirm("Deseja remover este login do estoque?")) return;
+    const { error } = await supabaseClient.from('logins_disponiveis').delete().eq('id', id);
+    if (error) showToast("Erro", error.message, "fa-circle-xmark");
+    else window.carregarLoginsAdmin();
+};
+
+window.exportarLoginsParaCSV = async () => {
+    try {
+        const { data, error } = await supabaseClient
+            .from('logins_disponiveis')
+            .select('id, username, password, status, created_at, sold_at, produtos(nome)')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            showToast("Aviso", "Nenhum login para exportar.", "fa-info-circle");
+            return;
+        }
+
+        // Cabeçalho do CSV
+        const headers = ["ID", "Produto", "Usuário", "Senha", "Status", "Criado Em", "Vendido Em"];
+        const csvRows = [];
+        csvRows.push(headers.join(';')); // Adiciona o cabeçalho
+
+        // Dados
+        data.forEach(login => {
+            const produtoNome = login.produtos?.nome || 'N/A';
+            const createdAt = new Date(login.created_at).toLocaleString('pt-BR');
+            const soldAt = login.sold_at ? new Date(login.sold_at).toLocaleString('pt-BR') : 'N/A';
+            csvRows.push([login.id, produtoNome, login.username, login.password, login.status, createdAt, soldAt].join(';'));
+        });
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `logins_notecel_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Sucesso", "Estoque exportado para CSV!", "fa-check-circle");
+    } catch (err) {
+        showToast("Erro", `Falha ao exportar: ${err.message}`, "fa-circle-xmark");
+    }
+};
+
+window.processarImportacao = async (e) => {
+    const file = e.target.files[0];
+    const produtoId = document.getElementById('selectProduto').value;
+    
+    if (!produtoId) {
+        showToast("Erro", "Selecione um produto no formulário ao lado antes de importar.", "fa-exclamation-circle");
+        e.target.value = '';
+        return;
+    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const text = event.target.result;
+            
+            // 1. Buscar usernames já existentes no banco para este produto
+            const { data: existingInDb } = await supabaseClient
+                .from('logins_disponiveis')
+                .select('username')
+                .eq('produto_id', produtoId);
+            
+            const dbUsernames = new Set(existingInDb?.map(l => l.username.toLowerCase()) || []);
+            const localUsernames = new Set(); // Para evitar duplicatas dentro do próprio arquivo
+            let duplicatasIgnoradas = 0;
+
+            const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+            
+            const totalLogins = lines.map(line => {
+                const parts = line.split(';');
+                const u = parts[0]?.trim();
+                const p = parts[1]?.trim();
+                
+                if (!u || !p) return null;
+
+                const lowerU = u.toLowerCase();
+                if (dbUsernames.has(lowerU) || localUsernames.has(lowerU)) {
+                    duplicatasIgnoradas++;
+                    return null;
+                }
+                localUsernames.add(lowerU);
+                return { produto_id: produtoId, username: u, password: p, status: 'disponivel' };
+            }).filter(l => l !== null);
+
+            if (totalLogins.length === 0) throw new Error("Formato inválido. Use: usuario;senha");
+
+            // Configuração da Barra de Progresso
+            const container = document.getElementById('importProgressContainer');
+            const bar = document.getElementById('importProgressBar');
+            const percentText = document.getElementById('importPercentage');
+            const statusText = document.getElementById('importStatusText');
+            
+            container.classList.remove('hidden');
+            const chunkSize = 100; // Tamanho de cada lote
+            let processados = 0;
+
+            for (let i = 0; i < totalLogins.length; i += chunkSize) {
+                const chunk = totalLogins.slice(i, i + chunkSize);
+                const { error } = await supabaseClient.from('logins_disponiveis').insert(chunk);
+                
+                if (error) throw error;
+
+                processados += chunk.length;
+                const percent = Math.round((processados / totalLogins.length) * 100);
+                
+                // Atualiza UI
+                bar.style.width = `${percent}%`;
+                percentText.innerText = `${percent}%`;
+                statusText.innerText = `Importando: ${processados} de ${totalLogins.length}`;
+            }
+
+            const msgSucesso = duplicatasIgnoradas > 0 
+                ? `${totalLogins.length} importados (${duplicatasIgnoradas} duplicatas ignoradas).`
+                : `${totalLogins.length} logins importados com sucesso!`;
+
+            showToast("Sucesso", msgSucesso, "fa-check-circle");
+            window.carregarLoginsAdmin();
+            
+            // Esconde a barra após um pequeno delay
+            setTimeout(() => {
+                container.classList.add('hidden');
+                bar.style.width = '0%';
+            }, 3000);
+
+        } catch (err) {
+            showToast("Erro na Importação", err.message, "fa-circle-xmark");
+            document.getElementById('importProgressContainer').classList.add('hidden');
+        } finally { e.target.value = ''; }
+    };
+    reader.readAsText(file);
+};
+
+window.copiarTexto = (texto, el) => {
+    navigator.clipboard.writeText(texto);
+    const originalText = el.innerText;
+    el.innerText = "Copiado!";
+    el.classList.add('text-green-600', 'font-bold');
+    
+    setTimeout(() => {
+        el.innerText = originalText;
+        el.classList.remove('text-green-600', 'font-bold');
+    }, 1500);
+};
+
+window.iniciarMonitoramentoPedidos = () => {
+    console.log("🔔 Monitoramento de novos pedidos ativado...");
+
+    const canalPedidos = supabaseClient
+        .channel('admin-notificacoes')
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'pedidos' 
+        }, (payload) => {
+            const novoPedido = payload.new;
+            
+            if (novoPedido.status === 'PENDENTE') {
+                // Feedback Visual
+                showToast(
+                    "Novo Pedido!", 
+                    `Um novo pedido de R$ ${Number(novoPedido.total).toFixed(2)} foi criado.`, 
+                    "fa-bell animate-bounce"
+                );
+
+                // Feedback Sonoro (Opcional - Beep suave)
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioContext.createOscillator();
+                osc.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + 0.2);
+            }
+        })
+        .subscribe();
+};
+
+window.carregarResumoAdmin = async () => {
+    try {
+        // 1. Buscar faturamento e contagem de vendas pagas
+        const { data: vendas, error: errVendas } = await supabaseClient
+            .from('pedidos')
+            .select('total')
+            .eq('status', 'PAGO');
+
+        // 2. Buscar contagem de itens disponíveis no estoque digital
+        const { count: totalEstoque, error: errEstoque } = await supabaseClient
+            .from('logins_disponiveis')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'disponivel');
+
+        if (errVendas || errEstoque) throw (errVendas || errEstoque);
+
+        const faturamento = vendas.reduce((acc, curr) => acc + Number(curr.total), 0);
+        const totalVendas = vendas.length;
+
+        if (document.getElementById('faturamentoTotal')) document.getElementById('faturamentoTotal').innerText = `R$ ${faturamento.toFixed(2).replace('.', ',')}`;
+        if (document.getElementById('vendasConfirmadas')) document.getElementById('vendasConfirmadas').innerText = totalVendas;
+        if (document.getElementById('itensDisponiveis')) document.getElementById('itensDisponiveis').innerText = totalEstoque || 0;
+
+    } catch (err) {
+        console.error('Erro ao carregar resumo:', err.message);
+    }
+};
+
+window.carregarGraficoVendas = async () => {
+    const ctx = document.getElementById('vendasChart');
+    if (!ctx) return;
+
+    try {
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
+        seteDiasAtras.setHours(0, 0, 0, 0);
+
+        const { data: pedidos, error } = await supabaseClient
+            .from('pedidos')
+            .select('total, created_at')
+            .eq('status', 'PAGO')
+            .gte('created_at', seteDiasAtras.toISOString());
+
+        if (error) throw error;
+
+        // Criar estrutura para os últimos 7 dias
+        const ultimos7Dias = {};
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            ultimos7Dias[d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })] = 0;
+        }
+
+        // Somar totais por dia
+        pedidos.forEach(p => {
+            const dataFormatada = new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            if (ultimos7Dias[dataFormatada] !== undefined) {
+                ultimos7Dias[dataFormatada] += Number(p.total);
+            }
+        });
+
+        const labels = Object.keys(ultimos7Dias);
+        const valores = Object.values(ultimos7Dias);
+
+        if (vendasChartInstance) vendasChartInstance.destroy();
+
+        vendasChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Vendas (R$)',
+                    data: valores,
+                    backgroundColor: '#b91c1c', // Vermelho Notecel
+                    borderRadius: 10,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `R$ ${context.raw.toFixed(2).replace('.', ',')}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (value) => `R$ ${value}` },
+                        grid: { display: false }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error('Erro ao carregar gráfico:', err.message);
+    }
 };
 
 // Salva o tempo da música antes de sair da página
@@ -652,15 +1011,24 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     const logoutBtn = document.getElementById('logoutBtn');
     const historyBtn = document.getElementById('historyBtn');
     const userNameDisplay = document.getElementById('userNameDisplay');
+    const adminLink = document.getElementById('adminLink');
+    const adminLinkMobile = document.getElementById('adminLinkMobile');
 
     if (user) {
         if (userNameDisplay) userNameDisplay.innerText = user.user_metadata?.full_name || user.email.split('@')[0];
         if (logoutBtn) logoutBtn.classList.remove('hidden');
         if (historyBtn) historyBtn.classList.remove('hidden');
+        
+        // Verifica se o usuário logado é o administrador
+        const isAdmin = user.email === 'rogerioprazeressilva@gmail.com';
+        if (adminLink) adminLink.classList.toggle('hidden', !isAdmin);
+        if (adminLinkMobile) adminLinkMobile.classList.toggle('hidden', !isAdmin);
     } else {
         if (userNameDisplay) userNameDisplay.innerText = 'Entrar';
         if (logoutBtn) logoutBtn.classList.add('hidden');
         if (historyBtn) historyBtn.classList.add('hidden');
+        if (adminLink) adminLink.classList.add('hidden');
+        if (adminLinkMobile) adminLinkMobile.classList.add('hidden');
     }
 });
 

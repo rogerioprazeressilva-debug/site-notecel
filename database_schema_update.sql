@@ -35,10 +35,25 @@ CREATE TABLE IF NOT EXISTS public.logins_disponiveis (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Adicionar restrição de unicidade para evitar o mesmo usuário para o mesmo produto
+ALTER TABLE public.logins_disponiveis DROP CONSTRAINT IF EXISTS unique_product_username;
+ALTER TABLE public.logins_disponiveis ADD CONSTRAINT unique_product_username UNIQUE (produto_id, username);
+
 -- Habilitar Row Level Security (RLS) para a tabela de logins_disponiveis
 ALTER TABLE public.logins_disponiveis ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Permitir delete de logins quando o produto é deletado" ON public.logins_disponiveis;
-CREATE POLICY "Permitir delete de logins quando o produto é deletado" ON public.logins_disponiveis FOR DELETE USING (TRUE);
+CREATE POLICY "Admins podem deletar logins" ON public.logins_disponiveis 
+FOR DELETE TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+-- Políticas para Administração
+DROP POLICY IF EXISTS "Admins podem inserir logins" ON public.logins_disponiveis;
+CREATE POLICY "Admins podem inserir logins" ON public.logins_disponiveis 
+FOR INSERT TO authenticated WITH CHECK (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+DROP POLICY IF EXISTS "Admins podem ver todos os logins" ON public.logins_disponiveis;
+CREATE POLICY "Admins podem ver todos os logins" ON public.logins_disponiveis 
+FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
 
 -- 3. Tabela de Pedidos (Criada sem FKs inicialmente)
 CREATE TABLE IF NOT EXISTS public.pedidos (
@@ -230,11 +245,12 @@ SELECT 'NTDown', 'Gerenciador de downloads otimizado para instalação rápida d
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'NTDown');
 
 -- 10. TABELA DE VÍDEOS DA HOME
+-- 10. TABELA DE VÍDEOS DA HOME
 CREATE TABLE IF NOT EXISTS public.videos_inicio (
     id SERIAL PRIMARY KEY,
     titulo TEXT NOT NULL,
     url_embed TEXT NOT NULL,
-    plataforma TEXT NOT NULL, -- 'youtube', 'facebook' ou 'storage'
+    plataforma TEXT NOT NULL,
     ordem INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

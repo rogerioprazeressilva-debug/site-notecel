@@ -235,22 +235,4 @@ button:disabled {
     cursor: pointer;
     box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
 }
-
-/* Controlador de Música Flutuante */
-.music-player-widget {
-    position: fixed;
-    bottom: 1.5rem;
-    left: 1.5rem;
-    z-index: 999;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.music-btn {
-    width: 45px;
-    height: 45px;
-    border-radius: 100%;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
 }
