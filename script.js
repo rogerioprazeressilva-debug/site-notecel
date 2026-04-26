@@ -80,10 +80,52 @@ async function carregarApps() {
     }
 }
 
+// CARREGAR VÍDEOS DA HOME
+async function carregarVideos() {
+    const container = document.getElementById('video-container');
+    if (!container) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('videos_inicio')
+            .select('*')
+            .order('ordem', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = data.map(video => `
+            <div class="reveal mb-12">
+                <h2 class="text-2xl font-black text-slate-900 mb-6 text-center uppercase tracking-tight">${video.titulo}</h2>
+                <iframe 
+                    src="${video.url_embed}" 
+                    title="${video.titulo}"
+                    class="aspect-video" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    allowfullscreen>
+                </iframe>
+            </div>
+        `).join('');
+
+        // Pequeno delay para garantir que o DOM renderizou antes de ativar a animação de revelação
+        setTimeout(() => {
+            container.querySelectorAll('.reveal').forEach(el => el.classList.add('reveal-active'));
+        }, 100);
+
+    } catch (err) {
+        console.error('Erro ao carregar vídeos:', err.message);
+    }
+}
+
 // Inicialização inteligente
 window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('product-grid')) carregarProdutos();
     if (document.getElementById('apps-grid')) carregarApps();
+    if (document.getElementById('video-container')) carregarVideos();
 });
 
 // 2. RENDERIZAR PRODUTOS NA GRID
@@ -503,7 +545,15 @@ window.closeToast = () => {
     const box = document.getElementById('toastBox');
     box.classList.remove('toast-show');
     container.style.backgroundColor = "rgba(15, 23, 42, 0)";
-    setTimeout(() => container.classList.add('hidden'), 300);
+    setTimeout(() => {
+        container.classList.add('hidden');
+        
+        // Fecha o modal de checkout se ele estiver aberto (útil para erros de estoque ou conexão)
+        const checkoutModal = document.getElementById('checkoutModal');
+        if (checkoutModal && !checkoutModal.classList.contains('hidden')) {
+            window.closeModal();
+        }
+    }, 300);
 };
 
 function ouvirStatusPagamento(pixId) {

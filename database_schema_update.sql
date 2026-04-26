@@ -133,20 +133,16 @@ WHERE NOT EXISTS (SELECT 1 FROM public.produtos WHERE nome = 'Fone de Ouvido Blu
 
 -- 6. ADICIONAR ALGUNS LOGINS PARA TESTE (Opcional)
 -- Adicionando estoque para Netflix
-INSERT INTO public.logins_disponiveis (produto_id, username, password) 
-SELECT id, 'premium_user1@email.com', 'senha_forte_1' FROM public.produtos WHERE nome = 'Netflix Premium 4K' LIMIT 1;
+-- Adicionando múltiplos logins para testes de estoque
+INSERT INTO public.logins_disponiveis (produto_id, username, password, status) 
+SELECT id, 'user_teste_' || generate_series(1, 10) || '@email.com', 'senha123', 'disponivel'
+FROM public.produtos 
+WHERE categoria != 'Loja';
 
--- Adicionando estoque para HBO Max
-INSERT INTO public.logins_disponiveis (produto_id, username, password) 
-SELECT id, 'hbo_cliente@gmail.com', 'max_acesso_2024' FROM public.produtos WHERE nome = 'HBO Max - 1 Mês' LIMIT 1;
-
--- Adicionando estoque para Disney+
-INSERT INTO public.logins_disponiveis (produto_id, username, password) 
-SELECT id, 'disney_kids@outlook.com', 'mickey123' FROM public.produtos WHERE nome = 'Disney+ & Star+' LIMIT 1;
-
--- Adicionando estoque para Crunchyroll
-INSERT INTO public.logins_disponiveis (produto_id, username, password) 
-SELECT id, 'otaku_br@nime.com', 'naruto_shippuden' FROM public.produtos WHERE nome = 'Crunchyroll Premium' LIMIT 1;
+-- Se você quiser resetar os que já foram usados para 'disponivel' novamente:
+UPDATE public.logins_disponiveis 
+SET status = 'disponivel', reserved_by_pedido_id = NULL 
+WHERE status = 'reservado';
 
 -- 7. HABILITAR REALTIME
 -- Isso permite que o site "ouça" quando o pagamento for aprovado

@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       
-      if (loginError || !loginData) throw new Error("Estoque esgotado para este produto digital.");
+      if (loginError || !loginData) throw new Error(`Estoque esgotado para o produto: ${product.nome}`);
       loginId = loginData.id;
     } else {
       // Para produtos físicos, verificar quantidade
