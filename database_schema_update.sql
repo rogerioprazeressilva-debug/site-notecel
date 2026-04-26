@@ -176,12 +176,6 @@ BEGIN
         ALTER TABLE public.aplicativos ADD COLUMN link_ntdown TEXT;
     END IF;
 END $$;
--- Remover a restrição de NOT NULL da coluna antiga download_url, ou removê-la se não for mais usada
-DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='download_url') THEN 
-        ALTER TABLE public.aplicativos ALTER COLUMN download_url DROP NOT NULL;
-    END IF;
-END $$;
 
 ALTER TABLE public.aplicativos ENABLE ROW LEVEL SECURITY;
 
@@ -257,6 +251,10 @@ CREATE POLICY "Leitura pública para vídeos" ON public.videos_inicio FOR SELECT
 GRANT ALL ON TABLE public.videos_inicio TO postgres, anon, authenticated, service_role;
 GRANT ALL ON SEQUENCE public.videos_inicio_id_seq TO postgres, anon, authenticated, service_role;
 
+-- Garantir unicidade na URL para o ON CONFLICT funcionar
+ALTER TABLE public.videos_inicio DROP CONSTRAINT IF EXISTS videos_url_key;
+ALTER TABLE public.videos_inicio ADD CONSTRAINT videos_url_key UNIQUE (url_embed);
+
 -- Forçar atualização do cache da API
 NOTIFY pgrst, 'reload schema';
 
@@ -268,6 +266,11 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) 
 VALUES ('Demonstração', 'https://www.facebook.com/facebook/videos/10153231339946729/', 'facebook', 2)
 ON CONFLICT DO NOTHING;
+
+-- Correção de segurança: Garante que todos os links de YouTube usem o formato /embed/
+UPDATE public.videos_inicio 
+SET url_embed = REPLACE(REPLACE(url_embed, 'watch?v=', 'embed/'), 'youtu.be/', 'youtube.com/embed/')
+WHERE plataforma = 'youtube' AND url_embed NOT LIKE '%/embed/%';
 
 -- INSERÇÃO/ATUALIZAÇÃO DO S.A PLAYER
 INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, plataforma)

@@ -98,18 +98,25 @@ async function carregarVideos() {
             return;
         }
 
-        container.innerHTML = data.map(video => `
-            <div class="reveal mb-12">
-                <h2 class="text-2xl font-black text-slate-900 mb-6 text-center uppercase tracking-tight">${video.titulo}</h2>
-                <iframe 
-                    src="${video.url_embed}" 
-                    title="${video.titulo}"
-                    class="aspect-video" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                    allowfullscreen>
-                </iframe>
-            </div>
-        `).join('');
+        container.innerHTML = data.map(video => {
+            // Sanitização do link: Transforma links normais do YouTube em links de embed
+            let safeUrl = video.url_embed;
+            if (video.plataforma === 'youtube') {
+                safeUrl = safeUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/');
+            }
+
+            return `
+                <div class="reveal mb-12">
+                    <h2 class="text-2xl font-black text-slate-900 mb-6 text-center uppercase tracking-tight">${video.titulo}</h2>
+                    <iframe 
+                        src="${safeUrl}" 
+                        title="${video.titulo}"
+                        class="aspect-video" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen>
+                    </iframe>
+                </div>`;
+        }).join('');
 
         // Pequeno delay para garantir que o DOM renderizou antes de ativar a animação de revelação
         setTimeout(() => {
