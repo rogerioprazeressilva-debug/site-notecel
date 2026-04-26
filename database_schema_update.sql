@@ -215,3 +215,27 @@ WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'Downloader');
 INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
 SELECT 'NTDown', 'Gerenciador de downloads otimizado para instalação rápida de apps via link direto.', 'https://placehold.co/150?text=NTDown', 'https://play.google.com/store/apps/details?id=com.ntdown.app', '55678', 'https://notecel.com/ntdown.apk', 'Android'
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'NTDown');
+
+-- 10. TABELA DE VÍDEOS DA HOME
+CREATE TABLE IF NOT EXISTS public.videos_inicio (
+    id SERIAL PRIMARY KEY,
+    titulo TEXT NOT NULL,
+    url_embed TEXT NOT NULL,
+    plataforma TEXT NOT NULL, -- 'youtube', 'facebook' ou 'storage'
+    ordem INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.videos_inicio ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Leitura pública para vídeos" ON public.videos_inicio;
+CREATE POLICY "Leitura pública para vídeos" ON public.videos_inicio FOR SELECT TO anon, authenticated USING (true);
+
+GRANT ALL ON TABLE public.videos_inicio TO postgres, anon, authenticated, service_role;
+GRANT ALL ON SEQUENCE public.videos_inicio_id_seq TO postgres, anon, authenticated, service_role;
+
+-- Forçar atualização do cache da API
+NOTIFY pgrst, 'reload schema';
+
+-- Exemplo de inserção (Substitua pelos seus links)
+INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) VALUES 
+('Apresentação Notecel', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube', 1);

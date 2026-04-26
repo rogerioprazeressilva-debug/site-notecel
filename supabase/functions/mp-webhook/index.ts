@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
 
         if (errorBusca) {
           console.error("Pedido não encontrado no banco para o pix_id:", paymentId);
+          return new Response(JSON.stringify({ error: "Pedido não localizado" }), { status: 404, headers: corsHeaders });
         }
 
         if (pedido && pedido.status === 'PENDENTE') {

@@ -10,7 +10,6 @@ let carrinho = [];
 
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
 async function carregarProdutos() {
-    console.log("--- Tentando conectar ao Supabase ---");
     try {
         const { data, error } = await supabaseClient
             .from('produtos')
@@ -19,10 +18,7 @@ async function carregarProdutos() {
 
         if (error) throw error;
 
-        console.log("Produtos recebidos:", data);
-
         if (!data || data.length === 0) {
-            console.warn("Atenção: A tabela 'produtos' está vazia no seu banco de dados.");
             const grid = document.getElementById('product-grid');
             if (grid) grid.innerHTML = '<p class="col-span-full text-center text-slate-500">Nenhum produto encontrado no banco.</p>';
             return;
@@ -46,7 +42,6 @@ async function carregarApps() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-            console.log("ℹ️ Tabela de aplicativos está vazia.");
             grid.innerHTML = '<p class="col-span-full text-center text-slate-500">Nenhum aplicativo disponível.</p>';
             return;
         }
@@ -87,9 +82,83 @@ async function carregarApps() {
     }
 }
 
+// Utilitário para animações de revelação (Scroll Reveal)
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-active');
+        }
+    });
+}, { threshold: 0.1 });
+
+// CARREGAR VÍDEOS DINÂMICOS
+async function carregarVideosHome() {
+    const container = document.getElementById('video-container');
+    if (!container) return;
+
+    try {
+        const { data: videos, error } = await supabaseClient.from('videos_inicio').select('*').order('ordem', { ascending: true });
+        if (error) throw error;
+
+        if (videos && videos.length > 0) {
+            container.innerHTML = videos.map(video => {
+                let mediaHtml = '';
+                let finalUrl = video.url_embed;
+
+                // TRATAMENTO AUTOMÁTICO DE LINKS YOUTUBE
+                if (video.plataforma.toLowerCase() === 'youtube') {
+                    // Se for link normal (watch?v=), converte para embed
+                    if (finalUrl.includes('watch?v=')) {
+                        const videoId = finalUrl.split('v=')[1]?.split('&')[0];
+                        finalUrl = `https://www.youtube.com/embed/${videoId}`;
+                    } 
+                    // Se for link curto (youtu.be/), converte para embed
+                    else if (finalUrl.includes('youtu.be/')) {
+                        const videoId = finalUrl.split('/').pop();
+                        finalUrl = `https://www.youtube.com/embed/${videoId}`;
+                    }
+                    // Adiciona parâmetro para não mostrar vídeos relacionados de outros canais
+                    if (!finalUrl.includes('?')) finalUrl += '?rel=0';
+                } 
+                // TRATAMENTO AUTOMÁTICO DE LINKS FACEBOOK
+                else if (video.plataforma.toLowerCase() === 'facebook') {
+                    if (!finalUrl.includes('facebook.com/plugins/video.php')) {
+                        finalUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(finalUrl)}&show_text=0&t=0`;
+                    }
+                }
+
+                if (video.plataforma.toLowerCase() === 'youtube' || video.plataforma.toLowerCase() === 'facebook') {
+                    mediaHtml = `<iframe class="w-full h-full" src="${finalUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+                } else {
+                    // Caso seja 'storage' ou link direto de arquivo MP4
+                    mediaHtml = `<video class="w-full h-full rounded-2xl" controls><source src="${finalUrl}" type="video/mp4">Seu navegador não suporta vídeos.</video>`;
+                }
+                return `
+                    <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 reveal">
+                        <h3 class="text-center font-bold text-slate-900 mb-4 uppercase tracking-widest text-[10px] italic">${video.titulo}</h3>
+                        <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner">
+                            ${mediaHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Ativa o observer para os novos elementos criados
+            container.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        } else {
+            container.parentElement.classList.add('hidden'); // Esconde a seção se não houver vídeos
+        }
+    } catch (err) {
+        console.error("Erro ao carregar vídeos:", err);
+    }
+}
+
 // Inicialização inteligente
 window.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('product-grid')) carregarProdutos();
+    if (document.getElementById('product-grid')) {
+        carregarProdutos();
+        carregarVideosHome();
+    }
     if (document.getElementById('apps-grid')) carregarApps();
 });
 
@@ -552,7 +621,6 @@ function ouvirStatusPagamento(pixId) {
                 carrinho = [];
                 atualizarCarrinhoUI();
                 
-                console.log("✅ Pagamento confirmado via Realtime!");
                 supabaseClient.removeChannel(channel);
             }
         })
