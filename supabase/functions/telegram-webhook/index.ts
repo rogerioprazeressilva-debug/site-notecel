@@ -18,6 +18,13 @@ Deno.serve(async (req) => {
     if (!body) return new Response("No body", { status: 200 });
 
     const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const adminChatId = Deno.env.get('TELEGRAM_CHAT_ID') || ""
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
     if (!token) {
       console.error("❌ TELEGRAM_BOT_TOKEN não configurado.");
       return new Response("Missing token", { status: 500 });
@@ -26,11 +33,6 @@ Deno.serve(async (req) => {
     // Suporte para novas mensagens ou mensagens editadas
     let message = body.message || body.edited_message
     let callbackData = null
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
 
     console.log(`📩 Recebido de ${message?.chat?.id}: ${message?.text || 'Botão'}`)
 
@@ -99,14 +101,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
     }
 
-    const adminChatId = Deno.env.get('TELEGRAM_CHAT_ID') || ""
     const chatId = String(message.chat.id)
     
     // Normalização do texto
     let text = (callbackData || message.text || "").toLowerCase().trim()
 
     // --- REGISTRO AUTOMÁTICO DE USUÁRIO E AVISO AO ADMIN ---
-    const from = message.from;
+    // Pega o usuário real (quem clicou no botão ou quem enviou a mensagem)
+    const from = body.callback_query ? body.callback_query.from : (message ? message.from : null);
+
     if (from) {
       // Verifica se o usuário já existe antes de atualizar
       const { data: existingUser, error: checkError } = await supabase
