@@ -68,6 +68,12 @@ CREATE TABLE IF NOT EXISTS public.pedidos (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Garantir que as colunas necessárias existam na tabela de pedidos
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS produto_id INTEGER REFERENCES public.produtos(id);
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS customer_whatsapp TEXT;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS login_id INTEGER;
+
 -- Habilitar RLS e Realtime para pedidos
 ALTER TABLE public.pedidos ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Usuários veem seus próprios pedidos" ON public.pedidos;
@@ -75,13 +81,14 @@ CREATE POLICY "Usuários veem seus próprios pedidos" ON public.pedidos FOR SELE
 DROP POLICY IF EXISTS "Qualquer um pode criar pedidos" ON public.pedidos;
 CREATE POLICY "Qualquer um pode criar pedidos" ON public.pedidos FOR INSERT TO anon, authenticated WITH CHECK (true);
 
--- 4. Adicionar chaves estrangeiras após a criação de ambas as tabelas
-ALTER TABLE public.pedidos
-ADD COLUMN IF NOT EXISTS login_id INTEGER;
-
+-- 4. Ajustar restrições de chaves estrangeiras
 ALTER TABLE public.pedidos
 DROP CONSTRAINT IF EXISTS fk_pedido_login,
 ADD CONSTRAINT fk_pedido_login FOREIGN KEY (login_id) REFERENCES public.logins_disponiveis(id) ON DELETE SET NULL;
+
+ALTER TABLE public.pedidos
+DROP CONSTRAINT IF EXISTS fk_pedido_produto,
+ADD CONSTRAINT fk_pedido_produto FOREIGN KEY (produto_id) REFERENCES public.produtos(id) ON DELETE SET NULL;
 
 ALTER TABLE public.logins_disponiveis
 ADD COLUMN IF NOT EXISTS reserved_by_pedido_id UUID;
@@ -241,11 +248,10 @@ SELECT 'Downloader', 'Ferramenta essencial para navegar e baixar arquivos direta
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'Downloader');
 
 INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, link_downloader, link_ntdown, plataforma)
-SELECT 'NTDown', 'Gerenciador de downloads otimizado para instalação rápida de apps via link direto.', 'https://placehold.co/150?text=NTDown', 'https://play.google.com/store/apps/details?id=com.ntdown.app', '55678', 'https://notecel.com/ntdown.apk', 'Android'
+SELECT 'NTDown', 'Gerenciador de downloads otimizado para instalação rápida de apps via link direto.', 'https://placehold.co/150?text=NTDown', 'https://play.google.com/store/apps/details?id=com.ntdown.app', '55678', 'https://www.notecel.shop/ntdown.apk', 'Android'
 WHERE NOT EXISTS (SELECT 1 FROM public.aplicativos WHERE nome = 'NTDown');
 
--- 10. TABELA DE VÍDEOS DA HOME
--- 10. TABELA DE VÍDEOS DA HOME
+-- 10. TABELA DE VÍDEOS DA HOME (Consolidada)
 CREATE TABLE IF NOT EXISTS public.videos_inicio (
     id SERIAL PRIMARY KEY,
     titulo TEXT NOT NULL,
@@ -349,3 +355,20 @@ CREATE POLICY "Admins veem logs" ON public.logs_importacao FOR SELECT TO authent
 
 DROP POLICY IF EXISTS "Admins inserem logs" ON public.logs_importacao;
 CREATE POLICY "Admins inserem logs" ON public.logs_importacao FOR INSERT TO authenticated WITH CHECK (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+-- 14. TABELA DE USUÁRIOS DO BOT (LEADS)
+CREATE TABLE IF NOT EXISTS public.bot_users (
+    id SERIAL PRIMARY KEY,
+    chat_id TEXT UNIQUE NOT NULL,
+    first_name TEXT,
+    username TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.bot_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins veem usuários do bot" ON public.bot_users;
+CREATE POLICY "Admins veem usuários do bot" ON public.bot_users FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+DROP POLICY IF EXISTS "Qualquer um insere/atualiza seu registro" ON public.bot_users;
+CREATE POLICY "Qualquer um insere/atualiza seu registro" ON public.bot_users FOR INSERT TO anon, authenticated WITH CHECK (true);

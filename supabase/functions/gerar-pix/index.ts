@@ -15,15 +15,19 @@ async function enviarNotificacaoTelegram(mensagem: string) {
     return;
   }
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: mensagem,
-      parse_mode: 'Markdown'
-    })
-  });
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: mensagem,
+        parse_mode: 'HTML'
+      })
+    });
+  } catch (e) {
+    console.error("❌ Telegram: Falha ao enviar notificação:", e.message);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -147,11 +151,17 @@ Deno.serve(async (req) => {
       if (updateLoginError) throw updateLoginError;
     }
 
+    const cleanWhatsapp = customer_whatsapp.replace(/\D/g, '');
+    const waLink = `https://wa.me/${cleanWhatsapp.startsWith('55') ? cleanWhatsapp : '55' + cleanWhatsapp}`;
+
     // Notificar Telegram que um PIX foi gerado
-    const msgTelegram = `💠 *NOVO PIX GERADO* 🛒\n\n` +
-                        `📦 *Produto:* ${product.nome}\n` +
-                        `💵 *Valor:* R$ ${Number(valor).toFixed(2)}\n` +
-                        `📱 *WhatsApp:* ${customer_whatsapp}`;
+    const msgTelegram = `⚡ <b>NOVO PIX GERADO</b> ⚡\n\n` +
+                        `🆔 <b>Pedido:</b> <code>${pedidoData.id}</code>\n` +
+                        `📦 <b>Item:</b> ${product.nome}\n` +
+                        `💰 <b>Valor:</b> R$ ${Number(valor).toFixed(2)}\n` +
+                        `📱 <b>WhatsApp:</b> <a href="${waLink}">Abrir Conversa</a>\n\n` +
+                        `⏳ <i>Aguardando pagamento...</i>`;
+
     await enviarNotificacaoTelegram(msgTelegram);
 
     return new Response(

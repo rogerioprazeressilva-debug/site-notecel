@@ -734,7 +734,8 @@ window.carregarResumoAdmin = async () => {
         const { data: vendas, error: errVendas } = await supabaseClient
             .from('pedidos')
             .select('total')
-            .eq('status', 'PAGO');
+            .eq('status', 'PAGO')
+            .eq('is_archived', false);
 
         // 2. Buscar contagem de itens disponíveis no estoque digital
         const { count: totalEstoque, error: errEstoque } = await supabaseClient
@@ -756,6 +757,34 @@ window.carregarResumoAdmin = async () => {
     }
 };
 
+window.arquivarFaturamentoDia = async () => {
+    const confirmacao = window.confirm("Deseja ARQUIVAR as vendas pagas de hoje? Elas não aparecerão mais nos totais e gráficos, mas permanecerão salvas no histórico do banco.");
+    if (!confirmacao) return;
+
+    try {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const { error } = await supabaseClient
+            .from('pedidos')
+            .update({ is_archived: true })
+            .eq('status', 'PAGO')
+            .eq('is_archived', false)
+            .gte('created_at', startOfDay.toISOString())
+            .lte('created_at', endOfDay.toISOString());
+
+        if (error) throw error;
+
+        showToast("Sucesso", "Vendas de hoje arquivadas!", "fa-box-archive");
+        window.carregarResumoAdmin();
+        window.carregarGraficoVendas();
+    } catch (err) {
+        showToast("Erro", `Falha ao arquivar: ${err.message}`, "fa-circle-xmark");
+    }
+};
+
 window.carregarGraficoVendas = async () => {
     const ctx = document.getElementById('vendasChart');
     if (!ctx) return;
@@ -769,6 +798,7 @@ window.carregarGraficoVendas = async () => {
             .from('pedidos')
             .select('total, created_at')
             .eq('status', 'PAGO')
+            .eq('is_archived', false)
             .gte('created_at', seteDiasAtras.toISOString());
 
         if (error) throw error;
