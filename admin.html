@@ -109,6 +109,9 @@
                         <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div id="importProgressBar" class="h-full bg-red-700 transition-all duration-300" style="width: 0%"></div>
                         </div>
+                        <div class="text-center mt-4">
+                            <button id="cancelImportBtn" onclick="window.cancelImport()" class="px-4 py-2 bg-slate-400 text-white rounded-lg text-xs font-bold uppercase hover:bg-slate-500 transition-colors active:scale-95"><i class="fa-solid fa-ban mr-2"></i>Cancelar Importação</button>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -130,7 +133,55 @@
                 </div>
             </div>
         </div>
+
+        <!-- Seção de Histórico de Importações -->
+        <div class="mt-12 bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <h2 class="text-xl font-black uppercase italic">Histórico de Importações</h2>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="date" id="logDateStart" class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-red-700">
+                    <span class="text-slate-300">até</span>
+                    <input type="date" id="logDateEnd" class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-red-700">
+                    <button onclick="window.carregarHistoricoLogsAdmin()" class="px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase hover:bg-slate-700 transition-colors">Filtrar</button>
+                    <button onclick="window.limparFiltrosLogs()" class="text-slate-400 hover:text-red-700 transition-colors" title="Limpar Filtros"><i class="fa-solid fa-eraser"></i></button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="border-b border-slate-100">
+                        <tr>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Data</th>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400">Produto</th>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400 text-center">Proc.</th>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400 text-center">Atu.</th>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400 text-center">Ign.</th>
+                            <th class="pb-4 text-[10px] font-black uppercase text-slate-400 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaHistoricoLogs" class="text-sm">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </main>
+
+    <!-- Modal de Relatório de Importação -->
+    <div id="importReportModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+        <div class="bg-white rounded-[2rem] max-w-lg w-full p-8 shadow-2xl relative flex flex-col max-h-[80vh]">
+            <button onclick="document.getElementById('importReportModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-red-700 text-2xl">&times;</button>
+            <h2 class="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tighter italic">Relatório de Importação</h2>
+            <p id="reportSummary" class="text-xs text-slate-500 mb-6 font-bold uppercase tracking-widest"></p>
+            
+            <div class="flex-1 overflow-y-auto pr-2 mb-6">
+                <div id="reportList" class="space-y-2">
+                    <!-- Itens do log aparecem aqui -->
+                </div>
+            </div>
+
+            <button onclick="window.baixarLogTxt()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all">Baixar Log Completo (.txt)</button>
+        </div>
+    </div>
 
     <!-- Reutilizamos o Sistema de Toast para avisos -->
     <div id="toastContainer" class="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none hidden"></div>

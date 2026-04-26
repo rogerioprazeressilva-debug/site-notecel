@@ -15,7 +15,10 @@ let bgPlayer;
 const PLAYLIST_ID = 'PLR5p_8U3vO_D7K7qX9W_S4tq_V_m8J0Xw'; // <--- COLOQUE O ID DA SUA PLAYLIST AQUI
 let volumeSlider;
 let lastVolume = 20;
+let isImportCancelled = false; // Flag para controlar o cancelamento da importação
 let musicStarted = false;
+let logSessaoImportacao = []; // Armazena o log da última importação
+let logsHistoricoCache = []; // Cache para abrir detalhes do histórico
 let vendasChartInstance = null;
 
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
@@ -177,6 +180,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('product-grid')) carregarProdutos();
     if (document.getElementById('apps-grid')) carregarApps();
     if (document.getElementById('video-container')) carregarVideos();
+    if (document.getElementById('tabelaHistoricoLogs')) carregarHistoricoLogsAdmin();
 
     initBgMusic();
 
@@ -377,6 +381,71 @@ window.excluirLogin = async (id) => {
     else window.carregarLoginsAdmin();
 };
 
+// --- FUNÇÕES DE HISTÓRICO DE LOGS ---
+
+window.carregarHistoricoLogsAdmin = async () => {
+    const tabela = document.getElementById('tabelaHistoricoLogs');
+    if (!tabela) return;
+
+    const dateStart = document.getElementById('logDateStart')?.value;
+    const dateEnd = document.getElementById('logDateEnd')?.value;
+
+    try {
+        let query = supabaseClient
+            .from('logs_importacao')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (dateStart) query = query.gte('created_at', dateStart);
+        if (dateEnd) query = query.lte('created_at', dateEnd + 'T23:59:59');
+
+        // Se não houver filtro, limitamos aos últimos 20 para performance
+        if (!dateStart && !dateEnd) query = query.limit(20);
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        logsHistoricoCache = data;
+
+        tabela.innerHTML = data.map(log => `
+            <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <td class="py-4 text-slate-500 text-xs">${new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                <td class="py-4 font-bold text-slate-700">${log.produto_nome}</td>
+                <td class="py-4 text-center font-bold text-slate-600">${log.total_processados}</td>
+                <td class="py-4 text-center font-bold text-blue-600">${log.total_atualizados}</td>
+                <td class="py-4 text-center font-bold text-slate-400">${log.total_ignorados}</td>
+                <td class="py-4 text-right">
+                    <button onclick="window.abrirDetalhesLogHistorico(${log.id})" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">
+                        <i class="fa-solid fa-eye mr-1"></i> Detalhes
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Erro ao carregar histórico:', err.message);
+    }
+};
+
+window.abrirDetalhesLogHistorico = (id) => {
+    const log = logsHistoricoCache.find(l => l.id === id);
+    if (!log) return;
+
+    // Preenche a variável global de log para que o modal e o botão de baixar TXT funcionem
+    logSessaoImportacao = log.detalhes;
+    
+    // Reutiliza a função de mostrar relatório
+    window.mostrarRelatorioImportacao(log.total_processados, log.total_atualizados, log.total_ignorados);
+    showToast("Histórico", `Visualizando importação de ${log.produto_nome}`, "fa-clock-rotate-left");
+};
+
+window.limparFiltrosLogs = () => {
+    const start = document.getElementById('logDateStart');
+    const end = document.getElementById('logDateEnd');
+    if (start) start.value = '';
+    if (end) end.value = '';
+    window.carregarHistoricoLogsAdmin();
+};
+
 window.exportarLoginsParaCSV = async () => {
     try {
         const { data, error } = await supabaseClient
@@ -430,19 +499,25 @@ window.processarImportacao = async (e) => {
     if (!file) return;
 
     const reader = new FileReader();
+    // Resetar o estado de cancelamento
+    isImportCancelled = false;
+
     reader.onload = async (event) => {
         try {
             const text = event.target.result;
-            
+
             // 1. Buscar usernames já existentes no banco para este produto
             const { data: existingInDb } = await supabaseClient
                 .from('logins_disponiveis')
-                .select('username')
+                .select('username, status')
                 .eq('produto_id', produtoId);
             
-            const dbUsernames = new Set(existingInDb?.map(l => l.username.toLowerCase()) || []);
+            const dbStatusMap = new Map(existingInDb?.map(l => [l.username.toLowerCase(), l.status]) || []);
             const localUsernames = new Set(); // Para evitar duplicatas dentro do próprio arquivo
             let duplicatasIgnoradas = 0;
+            let itensAtualizados = 0;
+            let tentativasSobrescreverVendido = 0;
+            logSessaoImportacao = []; // Limpa log anterior
 
             const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
             
@@ -454,10 +529,25 @@ window.processarImportacao = async (e) => {
                 if (!u || !p) return null;
 
                 const lowerU = u.toLowerCase();
-                if (dbUsernames.has(lowerU) || localUsernames.has(lowerU)) {
+                
+                // Ignora duplicatas dentro do MESMO arquivo para evitar conflitos no lote
+                if (localUsernames.has(lowerU)) {
                     duplicatasIgnoradas++;
                     return null;
                 }
+
+                if (dbStatusMap.has(lowerU)) {
+                    if (dbStatusMap.get(lowerU) === 'vendido') {
+                        tentativasSobrescreverVendido++;
+                        logSessaoImportacao.push({ user: u, acao: 'ATUALIZADO', obs: 'Login já estava vendido' });
+                    } else {
+                        logSessaoImportacao.push({ user: u, acao: 'ATUALIZADO', obs: 'Senha atualizada' });
+                    }
+                    itensAtualizados++;
+                } else {
+                    logSessaoImportacao.push({ user: u, acao: 'INSERIDO', obs: 'Novo login no estoque' });
+                }
+
                 localUsernames.add(lowerU);
                 return { produto_id: produtoId, username: u, password: p, status: 'disponivel' };
             }).filter(l => l !== null);
@@ -469,14 +559,29 @@ window.processarImportacao = async (e) => {
             const bar = document.getElementById('importProgressBar');
             const percentText = document.getElementById('importPercentage');
             const statusText = document.getElementById('importStatusText');
+            const cancelBtn = document.getElementById('cancelImportBtn');
             
             container.classList.remove('hidden');
+            cancelBtn.classList.remove('hidden'); // Mostra o botão de cancelar
             const chunkSize = 100; // Tamanho de cada lote
             let processados = 0;
 
+            // Confirmação extra para logins vendidos
+            if (tentativasSobrescreverVendido > 0) {
+                const confirmacao = window.confirm(`Atenção: O arquivo contém ${tentativasSobrescreverVendido} login(s) que já foram VENDIDOS.\n\nAo continuar, as senhas serão atualizadas e eles voltarão ao status 'disponível'. Deseja prosseguir?`);
+                if (!confirmacao) throw new Error("Importação cancelada pelo administrador para preservar dados de vendas.");
+            }
+
             for (let i = 0; i < totalLogins.length; i += chunkSize) {
+                if (isImportCancelled) { // Verifica se a importação foi cancelada
+                    throw new Error("Importação cancelada pelo usuário.");
+                }
                 const chunk = totalLogins.slice(i, i + chunkSize);
-                const { error } = await supabaseClient.from('logins_disponiveis').insert(chunk);
+                
+                // Usamos upsert especificando a restrição de unicidade
+                const { error } = await supabaseClient
+                    .from('logins_disponiveis')
+                    .upsert(chunk, { onConflict: 'produto_id,username' });
                 
                 if (error) throw error;
 
@@ -489,25 +594,95 @@ window.processarImportacao = async (e) => {
                 statusText.innerText = `Importando: ${processados} de ${totalLogins.length}`;
             }
 
-            const msgSucesso = duplicatasIgnoradas > 0 
-                ? `${totalLogins.length} importados (${duplicatasIgnoradas} duplicatas ignoradas).`
-                : `${totalLogins.length} logins importados com sucesso!`;
+            // Salvar o log permanentemente no banco de dados
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const { data: prodInfo } = await supabaseClient.from('produtos').select('nome').eq('id', produtoId).single();
 
-            showToast("Sucesso", msgSucesso, "fa-check-circle");
+            await supabaseClient.from('logs_importacao').insert({
+                admin_email: session.user.email,
+                produto_nome: prodInfo?.nome || 'Produto ID: ' + produtoId,
+                total_processados: totalLogins.length,
+                total_atualizados: itensAtualizados,
+                total_ignorados: duplicatasIgnoradas,
+                detalhes: logSessaoImportacao // O array de objetos [{user, acao, obs}]
+            });
+
+            let msgSucesso = `${totalLogins.length} registros processados. `;
+            if (itensAtualizados > 0) msgSucesso += `${itensAtualizados} senhas atualizadas. `;
+            if (duplicatasIgnoradas > 0) msgSucesso += `(${duplicatasIgnoradas} duplicatas no arquivo ignoradas).`;
+
+            showToast("Sucesso", msgSucesso + " Clique para ver o relatório.", "fa-check-circle");
             window.carregarLoginsAdmin();
+            window.mostrarRelatorioImportacao(totalLogins.length, itensAtualizados, duplicatasIgnoradas);
             
-            // Esconde a barra após um pequeno delay
+            // Esconde a barra e o botão após um pequeno delay
             setTimeout(() => {
                 container.classList.add('hidden');
                 bar.style.width = '0%';
+                cancelBtn.classList.add('hidden');
             }, 3000);
 
         } catch (err) {
             showToast("Erro na Importação", err.message, "fa-circle-xmark");
+            // Esconde a barra e o botão imediatamente em caso de erro
             document.getElementById('importProgressContainer').classList.add('hidden');
+            document.getElementById('importProgressBar').style.width = '0%';
+            document.getElementById('cancelImportBtn').classList.add('hidden');
         } finally { e.target.value = ''; }
     };
     reader.readAsText(file);
+};
+
+window.mostrarRelatorioImportacao = (total, atualizados, ignorados) => {
+    const modal = document.getElementById('importReportModal');
+    const summary = document.getElementById('reportSummary');
+    const list = document.getElementById('reportList');
+
+    summary.innerText = `${total} Processados | ${atualizados} Atualizados | ${ignorados} Ignorados`;
+    
+    list.innerHTML = logSessaoImportacao.map(item => `
+        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px]">
+            <span class="font-bold text-slate-700">${item.user}</span>
+            <div class="text-right">
+                <span class="font-black ${item.acao === 'INSERIDO' ? 'text-green-600' : 'text-blue-600'}">${item.acao}</span>
+                <p class="text-slate-400 text-[9px]">${item.obs}</p>
+            </div>
+        </div>
+    `).join('');
+
+    modal.classList.remove('hidden');
+};
+
+window.baixarLogTxt = () => {
+    const conteudo = logSessaoImportacao.map(i => `[${i.acao}] ${i.user} - ${i.obs}`).join('\n');
+    const blob = new Blob([`RELATÓRIO DE IMPORTAÇÃO NOTECEL\nData: ${new Date().toLocaleString()}\n\n${conteudo}`], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `log_importacao_${new Date().getTime()}.txt`;
+    link.click();
+};
+
+window.cancelImport = () => {
+    isImportCancelled = true; // Define a flag de cancelamento
+    const container = document.getElementById('importProgressContainer');
+    const bar = document.getElementById('importProgressBar');
+    const percentText = document.getElementById('importPercentage');
+    const statusText = document.getElementById('importStatusText');
+    const cancelBtn = document.getElementById('cancelImportBtn');
+
+    if (statusText) statusText.innerText = "Importação cancelada.";
+    if (percentText) percentText.innerText = "0%";
+    if (bar) bar.style.width = '0%';
+    if (cancelBtn) cancelBtn.classList.add('hidden'); // Esconde o botão imediatamente
+
+    showToast("Cancelado", "A importação de logins foi cancelada.", "fa-ban");
+    
+    // Esconde o container de progresso imediatamente
+    if (container) container.classList.add('hidden');
+
+    // Reseta o input de arquivo para permitir nova seleção
+    const importInput = document.getElementById('importInput');
+    if (importInput) importInput.value = '';
 };
 
 window.copiarTexto = (texto, el) => {

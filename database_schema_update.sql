@@ -329,3 +329,23 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- O comando abaixo garante que não criaremos agendamentos duplicados
 SELECT cron.unschedule('limpar-logins-30min');
 SELECT cron.schedule('limpar-logins-30min', '*/5 * * * *', 'SELECT public.limpar_logins_expirados()');
+
+-- 13. TABELA DE LOGS DE IMPORTAÇÃO
+CREATE TABLE IF NOT EXISTS public.logs_importacao (
+    id SERIAL PRIMARY KEY,
+    admin_email TEXT NOT NULL,
+    produto_nome TEXT NOT NULL,
+    total_processados INTEGER NOT NULL,
+    total_atualizados INTEGER NOT NULL,
+    total_ignorados INTEGER NOT NULL,
+    detalhes JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.logs_importacao ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins veem logs" ON public.logs_importacao;
+CREATE POLICY "Admins veem logs" ON public.logs_importacao FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+DROP POLICY IF EXISTS "Admins inserem logs" ON public.logs_importacao;
+CREATE POLICY "Admins inserem logs" ON public.logs_importacao FOR INSERT TO authenticated WITH CHECK (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
