@@ -267,6 +267,11 @@ UPDATE public.videos_inicio
 SET url_embed = REPLACE(REPLACE(url_embed, 'watch?v=', 'embed/'), 'youtu.be/', 'youtube.com/embed/')
 WHERE plataforma = 'youtube' AND url_embed NOT LIKE '%/embed/%';
 
+-- Exemplo: Alterando o vídeo de 'Como Instalar' para uma Playlist com Loop
+UPDATE public.videos_inicio 
+SET url_embed = 'https://www.youtube.com/playlist?list=PLR5p_8U3vO_D7K7qX9W_S4tq_V_m8J0Xw' -- Substitua pelo ID da sua playlist
+WHERE titulo = 'Como Instalar';
+
 -- INSERÇÃO/ATUALIZAÇÃO DO S.A PLAYER
 INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, plataforma)
 VALUES ('S.A PLAYER', 'O Aplicativo mais estável do mercado e disponível na play store.', 'https://play-lh.googleusercontent.com/97839352-7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://play.google.com/store/apps/details?id=com.saplayer.android', 'Android')

@@ -223,6 +223,16 @@
         <span class="cart-count-badge absolute -top-1 -right-1 bg-slate-900 text-[10px] px-2 py-1 rounded-full border-2 border-white">0</span>
     </button>
 
+    <!-- Background Music Widget -->
+    <div class="music-player-widget">
+        <button onclick="toggleBgMusic()" id="musicToggleBtn" class="music-btn bg-slate-900 text-white flex items-center justify-center transition-all hover:bg-red-700 active:scale-90">
+            <i class="fa-solid fa-music"></i>
+        </button>
+        <i id="muteBtn" onclick="toggleMute()" class="fa-solid fa-volume-low cursor-pointer text-slate-400 hover:text-red-700 transition-colors ml-1 w-5 text-center"></i>
+        <input type="range" id="volumeSlider" min="0" max="100" value="20" class="volume-slider">
+        <div id="bgMusicPlayer" class="hidden"></div>
+    </div>
+
     <script src="script.js?v=1.1.7"></script>
 </body>
 </html>

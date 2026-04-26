@@ -10,6 +10,13 @@ let carrinho = [];
 let categoriaAtual = 'todos';
 let ocultarEsgotados = false;
 
+// CONFIGURAÇÃO DE MÚSICA DE FUNDO
+let bgPlayer;
+const PLAYLIST_ID = 'PLR5p_8U3vO_D7K7qX9W_S4tq_V_m8J0Xw'; // <--- COLOQUE O ID DA SUA PLAYLIST AQUI
+let volumeSlider;
+let lastVolume = 20;
+let musicStarted = false;
+
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
 async function carregarProdutos() {
     console.log("--- Tentando conectar ao Supabase ---");
@@ -101,22 +108,44 @@ async function carregarVideos() {
         }
 
         container.innerHTML = data.map(video => {
-            // Sanitização do link: Transforma links normais do YouTube em links de embed
             let safeUrl = video.url_embed;
+            let isPlaylist = false;
+
             if (video.plataforma === 'youtube') {
-                safeUrl = safeUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/');
+                if (safeUrl.includes('list=')) {
+                    isPlaylist = true;
+                    // Caso seja uma Playlist
+                    const listId = safeUrl.split('list=')[1].split('&')[0];
+                    // Adicionamos enablejsapi=1 para permitir controle via JS
+                    safeUrl = `https://www.youtube.com/embed/videoseries?list=${listId}&loop=1&enablejsapi=1`;
+                } else {
+                    // Caso seja um Vídeo Único
+                    const videoId = safeUrl.includes('watch?v=') 
+                        ? safeUrl.split('v=')[1].split('&')[0] 
+                        : safeUrl.split('/').pop().split('?')[0];
+                    
+                    safeUrl = `https://www.youtube.com/embed/${videoId}?loop=1&playlist=${videoId}&enablejsapi=1`;
+                }
             }
 
             return `
                 <div class="reveal mb-12">
                     <h2 class="text-2xl font-black text-slate-900 mb-6 text-center uppercase tracking-tight">${video.titulo}</h2>
                     <iframe 
+                        id="player-${video.id}"
                         src="${safeUrl}" 
                         title="${video.titulo}"
                         class="aspect-video" 
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                         allowfullscreen>
                     </iframe>
+                    ${isPlaylist ? `
+                        <div class="text-center mt-4">
+                            <button onclick="pularVideo('player-${video.id}')" class="bg-slate-900 text-white px-6 py-2 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-md active:scale-95">
+                                <i class="fa-solid fa-forward-step mr-2"></i> Próximo Vídeo
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>`;
         }).join('');
 
@@ -130,11 +159,151 @@ async function carregarVideos() {
     }
 }
 
+// FUNÇÃO PARA PULAR VÍDEO NA PLAYLIST
+window.pularVideo = (frameId) => {
+    const iframe = document.getElementById(frameId);
+    if (iframe) {
+        // Envia comando para a API do YouTube dentro do iframe
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'nextVideo'
+        }), '*');
+    }
+};
+
 // Inicialização inteligente
 window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('product-grid')) carregarProdutos();
     if (document.getElementById('apps-grid')) carregarApps();
     if (document.getElementById('video-container')) carregarVideos();
+
+    initBgMusic();
+
+    // Inicializa o slider de volume
+    volumeSlider = document.getElementById('volumeSlider');
+    if (volumeSlider) {
+        const savedVolume = localStorage.getItem('bgMusicVolume');
+        const initialVol = savedVolume !== null ? savedVolume : 20;
+        
+        volumeSlider.value = initialVol;
+        atualizarIconeVolume(initialVol);
+
+        volumeSlider.addEventListener('input', () => {
+            const vol = volumeSlider.value;
+            if (bgPlayer && bgPlayer.setVolume) {
+                bgPlayer.setVolume(vol);
+                localStorage.setItem('bgMusicVolume', vol);
+                atualizarIconeVolume(vol);
+            }
+        });
+    }
+});
+
+// INICIALIZAÇÃO DA MÚSICA DE FUNDO
+function initBgMusic() {
+    // Carrega a API do YouTube se ainda não existir
+    if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+}
+
+// Chamado automaticamente pela API do YouTube
+window.onYouTubeIframeAPIReady = function() {
+    // Verifica se o player de música deve ser criado
+    if (document.getElementById('bgMusicPlayer')) {
+        bgPlayer = new YT.Player('bgMusicPlayer', {
+            height: '0',
+            width: '0',
+            videoId: '', // Deixe vazio pois usaremos list
+            playerVars: {
+                listType: 'playlist',
+                list: PLAYLIST_ID,
+                loop: 1,
+                autoplay: 0
+            },
+            events: {
+                'onReady': onBgPlayerReady,
+                'onStateChange': onBgPlayerStateChange
+            }
+        });
+    }
+};
+
+function onBgPlayerReady(event) {
+    const savedTime = localStorage.getItem('bgMusicTime') || 0;
+    const savedVolume = localStorage.getItem('bgMusicVolume') || 20; // Pega o volume salvo ou usa 20
+    const wasPlaying = localStorage.getItem('bgMusicPlaying') === 'true'; // Verifica se estava tocando
+    
+    event.target.setVolume(parseInt(savedVolume)); // Define o volume inicial do player
+    event.target.seekTo(parseFloat(savedTime));
+    atualizarIconeVolume(savedVolume);
+
+    if (wasPlaying) {
+        // O navegador pode bloquear. O usuário precisará clicar no botão de música.
+        console.log("Tentando retomar música...");
+    }
+}
+
+function onBgPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.PLAYING) {
+        localStorage.setItem('bgMusicPlaying', 'true');
+        document.getElementById('musicToggleBtn').classList.add('animate-pulse', 'bg-red-700');
+    } else {
+        localStorage.setItem('bgMusicPlaying', 'false');
+        document.getElementById('musicToggleBtn').classList.remove('animate-pulse', 'bg-red-700');
+    }
+}
+
+window.toggleBgMusic = () => {
+    if (!bgPlayer) return;
+    const state = bgPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
+        bgPlayer.pauseVideo();
+    } else {
+        bgPlayer.playVideo();
+    }
+};
+
+// FUNÇÕES DE VOLUME E MUDO
+window.atualizarIconeVolume = (volume) => {
+    const icon = document.getElementById('muteBtn');
+    if (!icon) return;
+    
+    icon.classList.remove('fa-volume-xmark', 'fa-volume-low', 'fa-volume-high');
+    
+    const v = parseInt(volume);
+    if (v === 0) {
+        icon.classList.add('fa-volume-xmark');
+    } else if (v < 50) {
+        icon.classList.add('fa-volume-low');
+    } else {
+        icon.classList.add('fa-volume-high');
+    }
+};
+
+window.toggleMute = () => {
+    if (!bgPlayer || !volumeSlider) return;
+    
+    if (parseInt(volumeSlider.value) > 0) {
+        lastVolume = volumeSlider.value;
+        volumeSlider.value = 0;
+    } else {
+        volumeSlider.value = lastVolume > 0 ? lastVolume : 20;
+    }
+    
+    bgPlayer.setVolume(volumeSlider.value);
+    localStorage.setItem('bgMusicVolume', volumeSlider.value);
+    atualizarIconeVolume(volumeSlider.value);
+};
+
+// Salva o tempo da música antes de sair da página
+window.addEventListener('beforeunload', () => {
+    if (bgPlayer && bgPlayer.getCurrentTime) {
+        localStorage.setItem('bgMusicTime', bgPlayer.getCurrentTime());
+    }
 });
 
 // Helper function para criar um único card de produto

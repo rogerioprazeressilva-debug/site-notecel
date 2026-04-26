@@ -175,4 +175,82 @@ button:disabled {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Controlador de Música Flutuante */
+.music-player-widget {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.music-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 100%;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilo para a barra de volume */
+.volume-slider {
+    width: 0; /* Começa escondido (largura zero) */
+    height: 5px; /* Espessura da barra */
+    -webkit-appearance: none; /* Remove estilo padrão do navegador */
+    appearance: none;
+    background: #cbd5e1; /* Cor da trilha */
+    outline: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Transição suave para largura e opacidade */
+    opacity: 0; /* Invisível por padrão */
+    pointer-events: none; /* Evita interação enquanto oculto */
+}
+
+.music-player-widget:hover .volume-slider {
+    width: 80px; /* Expande para o tamanho original no hover */
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Estilo do "thumb" (o controle deslizante) */
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #b91c1c; /* Cor do thumb */
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.8); /* Borda branca */
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #b91c1c;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+}
+
+/* Controlador de Música Flutuante */
+.music-player-widget {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.music-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 100%;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
 }
