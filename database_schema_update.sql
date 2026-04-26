@@ -356,13 +356,18 @@ CREATE POLICY "Admins veem logs" ON public.logs_importacao FOR SELECT TO authent
 DROP POLICY IF EXISTS "Admins inserem logs" ON public.logs_importacao;
 CREATE POLICY "Admins inserem logs" ON public.logs_importacao FOR INSERT TO authenticated WITH CHECK (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
 
--- 14. TABELA DE USUÁRIOS DO BOT (LEADS)
+-- Garantir acesso às roles do sistema e sequência
+GRANT ALL ON TABLE public.logs_importacao TO postgres, authenticated, service_role;
+GRANT ALL ON SEQUENCE public.logs_importacao_id_seq TO postgres, authenticated, service_role;
+
+-- 14. TABELA DE USUÁRIOS DO BOT (LEADS E CRM)
 CREATE TABLE IF NOT EXISTS public.bot_users (
     id SERIAL PRIMARY KEY,
     chat_id TEXT UNIQUE NOT NULL,
     first_name TEXT,
     username TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_interaction TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE public.bot_users ENABLE ROW LEVEL SECURITY;
@@ -370,5 +375,31 @@ ALTER TABLE public.bot_users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins veem usuários do bot" ON public.bot_users;
 CREATE POLICY "Admins veem usuários do bot" ON public.bot_users FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
 
-DROP POLICY IF EXISTS "Qualquer um insere/atualiza seu registro" ON public.bot_users;
-CREATE POLICY "Qualquer um insere/atualiza seu registro" ON public.bot_users FOR INSERT TO anon, authenticated WITH CHECK (true);
+-- Simplificado o nome para evitar erro de sintaxe 42601
+DROP POLICY IF EXISTS "Permitir upsert bot_users" ON public.bot_users;
+CREATE POLICY "Permitir upsert bot_users" ON public.bot_users 
+FOR ALL TO anon, authenticated, service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Garantir acesso às roles do sistema e sequência
+GRANT ALL ON TABLE public.bot_users TO postgres, authenticated, service_role;
+GRANT ALL ON SEQUENCE public.bot_users_id_seq TO postgres, authenticated, service_role;
+
+-- 15. TABELA DE LEADS DE MARKETING (WEB)
+CREATE TABLE IF NOT EXISTS public.leads_marketing (
+    id SERIAL PRIMARY KEY,
+    nome TEXT,
+    email TEXT UNIQUE NOT NULL,
+    whatsapp TEXT,
+    origem TEXT DEFAULT 'whatsapp_web',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.leads_marketing ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins veem leads de marketing" ON public.leads_marketing;
+CREATE POLICY "Admins veem leads de marketing" ON public.leads_marketing FOR SELECT TO authenticated USING (auth.jwt() ->> 'email' = 'rogerioprazeressilva@gmail.com');
+
+DROP POLICY IF EXISTS "Permitir inserção pública de leads" ON public.leads_marketing;
+CREATE POLICY "Permitir inserção pública de leads" ON public.leads_marketing FOR INSERT TO anon, authenticated WITH CHECK (true);

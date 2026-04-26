@@ -864,6 +864,29 @@ window.carregarGraficoVendas = async () => {
 };
 
 // Salva o tempo da música antes de sair da página
+
+// --- SISTEMA DE CAPTURA DE LEADS ---
+window.registrarLeadWhatsapp = async () => {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        // Só conseguimos salvar dados nominais se o usuário estiver autenticado
+        if (session) {
+            const user = session.user;
+            const { error } = await supabaseClient.from('leads_marketing').upsert({
+                email: user.email,
+                nome: user.user_metadata?.full_name || '',
+                whatsapp: user.user_metadata?.whatsapp || '',
+                origem: 'whatsapp_flutuante_web'
+            }, { onConflict: 'email' });
+            
+            if (error) console.error("Erro ao registrar lead:", error.message);
+        }
+    } catch (err) {
+        console.error("Falha silenciosa na captura de lead.");
+    }
+};
+
 window.addEventListener('beforeunload', () => {
     if (bgPlayer && bgPlayer.getCurrentTime) {
         localStorage.setItem('bgMusicTime', bgPlayer.getCurrentTime());

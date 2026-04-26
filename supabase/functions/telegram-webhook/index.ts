@@ -14,12 +14,18 @@ Deno.serve(async (req) => {
   console.log("🚀 Webhook acionado! Método:", req.method);
 
   try {
-    const body = await req.json()
+    const body = await req.json().catch(() => null);
+    if (!body) return new Response("No body", { status: 200 });
+
+    const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    if (!token) {
+      console.error("❌ TELEGRAM_BOT_TOKEN não configurado.");
+      return new Response("Missing token", { status: 500 });
+    }
     
     // Suporte para novas mensagens ou mensagens editadas
     let message = body.message || body.edited_message
     let callbackData = null
-    const token = Deno.env.get('TELEGRAM_BOT_TOKEN')
 
     console.log(`📩 Recebido de ${message?.chat?.id}: ${message?.text || 'Botão'}`)
 
@@ -63,7 +69,7 @@ Deno.serve(async (req) => {
 
     // Mapeamento de botões de texto para comandos internos
     if (text.includes("catálogo")) text = "/catalogo";
-    if (text.includes("meus acessos") || text.includes("minhas compras")) text = "/meuslogins";
+    if (text.includes("meus acessos") || text.includes("minhas compras") || text.includes("acessos")) text = "/meuslogins";
     if (text.includes("suporte")) text = "/suporte";
     if (text.includes("visitar site")) text = "/site";
     if (text.includes("resumo de vendas")) text = "/vendas";
@@ -89,11 +95,16 @@ Deno.serve(async (req) => {
     // Registra ou atualiza o usuário no banco em cada interação
     const from = message.from;
     if (from) {
-      await supabase.from('bot_users').upsert({
+      const { error: upsertError } = await supabase.from('bot_users').upsert({
         chat_id: String(from.id),
         first_name: from.first_name,
-        username: from.username
+        username: from.username,
+        last_interaction: new Date().toISOString()
       }, { onConflict: 'chat_id' });
+
+      if (upsertError) {
+        console.error("⚠️ Erro ao registrar usuário no banco:", upsertError.message);
+      }
     }
 
     // --- FLUXO DO CLIENTE (QUALQUER USUÁRIO) ---
@@ -193,7 +204,10 @@ Deno.serve(async (req) => {
           : `❌ ${p.nome} - ESGOTADO`;
         const btnAction = disponivel ? `/comprar ${p.id}` : `esgotado_${p.id}`;
         
-        const legenda = `📦 <b>${p.nome}</b>\n💰 Investimento: <b>R$ ${Number(p.preco).toFixed(2)}</b>\n\n📖 <i>${p.descricao || 'Sem descrição.'}</i>`;
+        // Limpeza de HTML básica para evitar erro 400 do Telegram
+        const descLimpa = (p.descricao || 'Sem descrição.').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        
+        const legenda = `📦 <b>${p.nome}</b>\n💰 Investimento: <b>R$ ${Number(p.preco).toFixed(2)}</b>\n\n📖 <i>${descLimpa}</i>`;
         const replyMarkup = {
           inline_keyboard: [
             [{ text: btnText, callback_data: btnAction }]
@@ -367,7 +381,7 @@ Deno.serve(async (req) => {
 
       if (alertasDigitais.length) {
         alertMsg += `\n<b>PRODUTOS DIGITAIS:</b>\n`;
-        alertasDigitais.forEach(d => alertMsg += `• ${p.nome}: <b>${d.qtd} logins</b>\n`);
+        alertasDigitais.forEach(d => alertMsg += `• ${d.nome}: <b>${d.qtd} logins</b>\n`);
       }
 
       if (!fisicos?.length && !alertasDigitais.length) {
@@ -514,7 +528,7 @@ Deno.serve(async (req) => {
             })
           });
           if (res.ok) sucessos++; else falhas++;
-          // Pequena pausa de 50ms para evitar rate limit do Telegram em transmissões
+          // Pequena pausa para evitar bloqueio por spam do Telegram
           await new Promise(resolve => setTimeout(resolve, 50));
         } catch { falhas++; }
       }
