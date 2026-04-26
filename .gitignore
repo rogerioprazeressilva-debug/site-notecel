@@ -1,11 +1,12 @@
+# Dependências
 node_modules/
-.env
 .DS_Store
-dist/
-public/
-build/
-*.log
 
-# Supabase
-.supabase/
+# Supabase e Ambientes
+.env
+.env.local
 supabase/.temp/
+
+# Log e Cache
+*.log
+dist/

@@ -168,8 +168,23 @@ CREATE TABLE IF NOT EXISTS public.aplicativos (
 );
 
 -- Garantir que as colunas de links existam caso a tabela já tenha sido criada antes
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_playstore') THEN
+        ALTER TABLE public.aplicativos ADD COLUMN link_playstore TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_downloader') THEN
+        ALTER TABLE public.aplicativos ADD COLUMN link_downloader TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_ntdown') THEN
+        ALTER TABLE public.aplicativos ADD COLUMN link_ntdown TEXT;
+    END IF;
+END $$;
+-- Remover a restrição de NOT NULL da coluna antiga download_url, ou removê-la se não for mais usada
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='link_playstore') THEN ALTER TABLE public.aplicativos ADD COLUMN link_playstore TEXT, ADD COLUMN link_downloader TEXT, ADD COLUMN link_ntdown TEXT; END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aplicativos' AND column_name='download_url') THEN 
+        ALTER TABLE public.aplicativos ALTER COLUMN download_url DROP NOT NULL;
+    END IF;
 END $$;
 
 ALTER TABLE public.aplicativos ENABLE ROW LEVEL SECURITY;
@@ -184,19 +199,32 @@ GRANT ALL ON SEQUENCE public.aplicativos_id_seq TO postgres, anon, authenticated
 -- Forçar atualização do cache do PostgREST (API)
 NOTIFY pgrst, 'reload schema';
 
--- Dados iniciais para aplicativos
-
 -- 9. CONFIGURAÇÃO DE STORAGE (OPCIONAL - RECOMENDADO)
 -- Cria um bucket para armazenar suas fotos se ele não existir
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('notecell_media', 'notecell_media', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Adicionar restrição de unicidade no nome para permitir o ON CONFLICT
+-- 1. Removemos registros duplicados caso existam (mantendo apenas o primeiro de cada nome)
+DELETE FROM public.aplicativos 
+WHERE id NOT IN (
+    SELECT MIN(id) 
+    FROM public.aplicativos 
+    GROUP BY nome
+);
+
+-- 2. Agora aplicamos a restrição de unicidade com segurança
+ALTER TABLE public.aplicativos DROP CONSTRAINT IF EXISTS aplicativos_nome_key;
+ALTER TABLE public.aplicativos ADD CONSTRAINT aplicativos_nome_key UNIQUE (nome);
+
 -- Permite que qualquer pessoa veja as fotos
+DROP POLICY IF EXISTS "Fotos públicas" ON storage.objects;
 CREATE POLICY "Fotos públicas" ON storage.objects
 FOR SELECT TO public USING (bucket_id = 'notecell_media');
 
 -- Permite que você (admin) suba fotos (exige autenticação)
+DROP POLICY IF EXISTS "Admin pode subir fotos" ON storage.objects;
 CREATE POLICY "Admin pode subir fotos" ON storage.objects
 FOR INSERT TO authenticated WITH CHECK (bucket_id = 'notecell_media');
 
@@ -237,6 +265,19 @@ GRANT ALL ON SEQUENCE public.videos_inicio_id_seq TO postgres, anon, authenticat
 NOTIFY pgrst, 'reload schema';
 
 -- Exemplo de inserção (Substitua pelos seus links)
-INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) VALUES 
-('', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube', 1),
-('', 'https://www.facebook.com/facebook/videos/10153231339946729/', 'facebook', 2);
+INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) 
+VALUES ('Como Instalar', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube', 1)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.videos_inicio (titulo, url_embed, plataforma, ordem) 
+VALUES ('Demonstração', 'https://www.facebook.com/facebook/videos/10153231339946729/', 'facebook', 2)
+ON CONFLICT DO NOTHING;
+
+-- INSERÇÃO/ATUALIZAÇÃO DO S.A PLAYER
+INSERT INTO public.aplicativos (nome, descricao, icone_url, link_playstore, plataforma)
+VALUES ('S.A PLAYER', 'O Aplicativo mais estável do mercado e disponível na play store.', 'https://play-lh.googleusercontent.com/97839352-7vB2K3q6vBvLp1k4VjUuW6_vVvVvVvVvVvVvVvVvVvVvVvVvVvVvVvV', 'https://play.google.com/store/apps/details?id=com.saplayer.android', 'Android')
+ON CONFLICT (nome) DO UPDATE SET 
+    link_playstore = EXCLUDED.link_playstore,
+    descricao = EXCLUDED.descricao,
+    plataforma = EXCLUDED.plataforma,
+    icone_url = EXCLUDED.icone_url;

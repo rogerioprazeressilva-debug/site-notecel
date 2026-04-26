@@ -1,5 +1,5 @@
 // ⚠️ IMPORTANTE: Substitua as strings abaixo pelas chaves reais do seu painel Supabase
-const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co'.replace(/\/$/, ''); // Remove barra final se houver
+const SUPABASE_URL = 'https://uaaslrletscnlqxctnee.supabase.co'; // <--- COLOQUE A SUA PROJECT URL AQUI
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhYXNscmxldHNjbmxxeGN0bmVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzcyMjMsImV4cCI6MjA5MjM1MzIyM30.60XnfXhjaL4XraJP0o3O7a8MMNmbqHEIlBcGi9MPJfw'; // <--- COLOQUE A SUA ANON PUBLIC KEY AQUI
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -10,6 +10,7 @@ let carrinho = [];
 
 // 1. CARREGAR PRODUTOS DO BANCO DE DADOS
 async function carregarProdutos() {
+    console.log("--- Tentando conectar ao Supabase ---");
     try {
         const { data, error } = await supabaseClient
             .from('produtos')
@@ -18,7 +19,10 @@ async function carregarProdutos() {
 
         if (error) throw error;
 
+        console.log("Produtos recebidos:", data);
+
         if (!data || data.length === 0) {
+            console.warn("Atenção: A tabela 'produtos' está vazia no seu banco de dados.");
             const grid = document.getElementById('product-grid');
             if (grid) grid.innerHTML = '<p class="col-span-full text-center text-slate-500">Nenhum produto encontrado no banco.</p>';
             return;
@@ -41,7 +45,12 @@ async function carregarApps() {
         const { data, error } = await supabaseClient.from('aplicativos').select('*').order('created_at', { ascending: false });
         if (error) throw error;
 
+        // Diagnóstico: Abre uma tabela no console para conferir as colunas
+        console.log("--- Diagnóstico de Aplicativos ---");
+        console.table(data);
+
         if (!data || data.length === 0) {
+            console.log("ℹ️ Tabela de aplicativos está vazia.");
             grid.innerHTML = '<p class="col-span-full text-center text-slate-500">Nenhum aplicativo disponível.</p>';
             return;
         }
@@ -49,7 +58,7 @@ async function carregarApps() {
         grid.innerHTML = data.map(app => `
             <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-6 group hover:border-red-700/30 transition-all transform hover:-translate-y-1">
                 <div class="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 shadow-inner bg-slate-50">
-                    <img src="${app.icone_url || 'https://placehold.co/150'}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/150?text=App'">
+                    <img src="${app.icone_url || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=App'">
                 </div>
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
@@ -57,23 +66,12 @@ async function carregarApps() {
                         <span class="text-[8px] bg-slate-100 px-2 py-0.5 rounded-full font-black uppercase text-slate-400">${app.plataforma}</span>
                     </div>
                     <p class="text-slate-500 text-xs line-clamp-2 mb-3">${app.descricao || ''}</p>
-                    
-                    <div class="flex flex-wrap gap-3">
-                        ${app.link_playstore ? `
-                            <a href="${app.link_playstore}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 hover:text-red-700 transition-colors">
-                                <i class="fa-brands fa-google-play"></i> Play Store
-                            </a>` : ''}
-                        
-                        ${app.link_downloader ? `
-                            <a href="https://www.google.com/search?q=Downloader+Code+${app.link_downloader}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-600 hover:text-red-700 transition-colors">
-                                <i class="fa-solid fa-cloud-arrow-down"></i> Downloader: ${app.link_downloader}
-                            </a>` : ''}
-
-                        ${app.link_ntdown ? `
-                            <a href="${app.link_ntdown}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-red-700 hover:text-red-800 transition-colors">
-                                <i class="fa-solid fa-file-apk"></i> NTDown (APK)
-                            </a>` : ''}
-                    </div>
+                    <a href="${app.link_playstore || app.link_ntdown || app.link_downloader || '#'}"
+                       target="_blank"
+                       ${!(app.link_playstore || app.link_ntdown || app.link_downloader) ? 'style="opacity: 0.5; pointer-events: none;"' : ''}
+                       class="inline-flex items-center gap-2 text-red-700 font-bold text-[10px] uppercase tracking-widest hover:gap-3 transition-all">
+                        Download <i class="fa-solid fa-arrow-right-long"></i>
+                    </a>
                 </div>
             </div>
         `).join('');
@@ -82,120 +80,9 @@ async function carregarApps() {
     }
 }
 
-// Utilitário para animações de revelação (Scroll Reveal)
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('reveal-active');
-        }
-    });
-}, { threshold: 0.1 });
-
-// CARREGAR VÍDEOS DINÂMICOS
-async function carregarVideosHome() {
-    const container = document.getElementById('video-container');
-    if (!container) return;
-
-    try {
-        const { data: videos, error } = await supabaseClient.from('videos_inicio').select('*').order('ordem', { ascending: true });
-        
-        if (error) {
-            console.error("❌ Erro Supabase Vídeos:", error.message);
-            return;
-        }
-
-        console.log("📺 Dados de vídeos recebidos:", videos);
-
-        if (videos && videos.length > 0) {
-            container.innerHTML = videos.map(video => {
-                let mediaHtml = '';
-                let finalUrl = video.url_embed;
-
-                // TRATAMENTO AUTOMÁTICO DE LINKS YOUTUBE
-                if (video.plataforma.toLowerCase() === 'youtube') {
-                    // Se for link normal (watch?v=), converte para embed
-                    if (finalUrl.includes('watch?v=')) {
-                        const videoId = finalUrl.split('v=')[1]?.split('&')[0];
-                        finalUrl = `https://www.youtube.com/embed/${videoId}`;
-                    } 
-                    // Se for link curto (youtu.be/), converte para embed
-                    else if (finalUrl.includes('youtu.be/')) {
-                        const videoId = finalUrl.split('/').pop();
-                        finalUrl = `https://www.youtube.com/embed/${videoId}`;
-                    }
-                    // Autoplay e Mudo para YouTube
-                    finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'autoplay=1&mute=1&rel=0&enablejsapi=1';
-                } 
-                // TRATAMENTO AUTOMÁTICO DE LINKS FACEBOOK
-                else if (video.plataforma.toLowerCase() === 'facebook') {
-                    if (!finalUrl.includes('facebook.com/plugins/video.php')) {
-                        finalUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(finalUrl)}&show_text=0&t=0&autoplay=true&mute=true`;
-                    }
-                }
-
-                if (video.plataforma.toLowerCase() === 'youtube' || video.plataforma.toLowerCase() === 'facebook') {
-                    mediaHtml = `<iframe id="frame-${video.id}" class="w-full h-full pointer-events-none" src="${finalUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
-                } else {
-                    // Caso seja 'storage' ou link direto de arquivo MP4
-                    mediaHtml = `<video id="video-${video.id}" class="w-full h-full rounded-2xl" autoplay muted playsinline loop><source src="${finalUrl}" type="video/mp4">Seu navegador não suporta vídeos.</video>`;
-                }
-                return `
-                    <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 reveal">
-                        <div class="aspect-video rounded-2xl overflow-hidden bg-slate-900 shadow-inner relative group">
-                            ${mediaHtml}
-                            <button onclick="toggleVolume(this, '${video.plataforma}', '${video.id}')" class="mute-toggle absolute bottom-4 right-4 bg-slate-900/80 text-white px-4 py-2 rounded-full backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border border-white/10 shadow-xl">
-                                <i class="fa-solid fa-volume-xmark"></i> Ativar Som
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            // Ativa o observer para os novos elementos criados
-            container.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-        } else {
-            console.warn("⚠️ NENHUM VÍDEO ENCONTRADO NA TABELA 'videos_inicio'");
-            container.innerHTML = '<p class="col-span-full text-center text-slate-400">Nenhum vídeo cadastrado.</p>';
-        }
-    } catch (err) {
-        console.error("Erro ao carregar vídeos:", err);
-    }
-}
-
-// FUNÇÃO PARA ALTERNAR SOM
-window.toggleVolume = (btn, plataforma, id) => {
-    const icon = btn.querySelector('i');
-    
-    if (plataforma === 'youtube') {
-        const iframe = document.getElementById(`frame-${id}`);
-        // Comando via PostMessage para o Iframe do YouTube
-        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
-        iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-    } else if (plataforma === 'storage') {
-        const video = document.getElementById(`video-${id}`);
-        if (video) {
-            video.muted = !video.muted;
-            if (!video.muted) {
-                icon.classList.replace('fa-volume-xmark', 'fa-volume-high');
-                btn.innerHTML = `<i class="fa-solid fa-volume-high"></i> Som Ativo`;
-            } else {
-                icon.classList.replace('fa-volume-high', 'fa-volume-xmark');
-                btn.innerHTML = `<i class="fa-solid fa-volume-xmark"></i> Ativar Som`;
-            }
-            return;
-        }
-    }
-    
-    // Para YouTube e Facebook (onde o controle é via API), apenas removemos o botão após o clique para não poluir
-    btn.style.display = 'none';
-};
-
 // Inicialização inteligente
 window.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('product-grid')) {
-        carregarProdutos();
-        carregarVideosHome();
-    }
+    if (document.getElementById('product-grid')) carregarProdutos();
     if (document.getElementById('apps-grid')) carregarApps();
 });
 
@@ -219,7 +106,7 @@ function renderizarProdutos(categoria = 'todos') {
             }
         };
         card.innerHTML = `
-            <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://placehold.co/400x300?text=Indisponivel'">
+            <img src="${produto.imagem_url}" alt="${produto.nome}" class="w-full h-32 md:h-48 object-cover rounded-xl md:rounded-2xl mb-3 md:mb-4" onerror="this.src='https://via.placeholder.com/400x300?text=Produto+Indispon%C3%ADvel'">
             <span class="text-[10px] font-bold uppercase tracking-widest text-red-600 mb-2">${produto.categoria}</span>
             <h3 class="font-bold text-slate-900 mb-1 md:mb-2 text-sm md:text-base">${produto.nome}</h3>
             <p class="text-slate-500 text-[10px] md:text-xs mb-4 flex-1 line-clamp-2">${produto.descricao || ''}</p>
@@ -361,14 +248,6 @@ window.checkout = async () => {
 
 window.closeModal = () => {
     document.getElementById('checkoutModal').classList.add('hidden');
-    // Resetar interface de checkout para permitir nova tentativa
-    const loader = document.getElementById('loader');
-    const pixData = document.getElementById('pixData');
-    const checkoutFields = document.getElementById('checkoutFields');
-    
-    if (loader) loader.classList.remove('hidden');
-    if (pixData) pixData.classList.add('hidden');
-    if (checkoutFields) checkoutFields.classList.remove('hidden');
 };
 
 // 5. SISTEMA DE AUTENTICAÇÃO (Login/Cadastro)
@@ -595,12 +474,8 @@ async function finalizarCompra(dadosCarrinho) {
         ouvirStatusPagamento(result.id_pagamento); // Usando o pix_id retornado
 
     } catch (error) {
-        console.error("Erro detalhado na finalização:", error);
-        if (error.message === "Failed to fetch") {
-            showToast("Erro de Conexão", "Não foi possível conectar ao servidor de pagamentos. Verifique sua internet ou tente novamente em instantes.", "fa-wifi");
-        } else {
-            showToast("Erro no Pedido", error.message, "fa-circle-exclamation");
-        }
+        console.error(error);
+        showToast("Erro no Pedido", error.message, "fa-circle-exclamation");
     } finally {
         if(btn) {
             btn.disabled = false;
@@ -654,10 +529,7 @@ function ouvirStatusPagamento(pixId) {
                 if (pixData) pixData.classList.add('hidden');
                 if (successState) successState.classList.remove('hidden');
                 
-                // Esvazia o carrinho e atualiza os badges/lista na interface
-                carrinho = [];
-                atualizarCarrinhoUI();
-                
+                console.log("✅ Pagamento confirmado via Realtime!");
                 supabaseClient.removeChannel(channel);
             }
         })
